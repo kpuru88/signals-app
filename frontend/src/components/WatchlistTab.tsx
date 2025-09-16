@@ -36,6 +36,8 @@ const WatchlistTab = () => {
   const [companies, setCompanies] = useState<Company[]>([])
   const [companiesWithWatch, setCompaniesWithWatch] = useState<CompanyWithWatch[]>([])
   const [loading, setLoading] = useState(false)
+  const [runAllLoading, setRunAllLoading] = useState(false)
+  const [runningCompanies, setRunningCompanies] = useState<Set<number>>(new Set())
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [newCompany, setNewCompany] = useState({
     name: '',
@@ -126,7 +128,12 @@ const WatchlistTab = () => {
   }
 
   const runWatchlist = async (companyId?: number) => {
-    setLoading(true)
+    if (companyId) {
+      setRunningCompanies(prev => new Set([...prev, companyId]))
+    } else {
+      setRunAllLoading(true)
+    }
+    
     try {
       const response = await fetch(`${API_BASE}/run/watchlist`, {
         method: 'POST',
@@ -146,7 +153,15 @@ const WatchlistTab = () => {
     } catch (error) {
       console.error('Error running watchlist:', error)
     } finally {
-      setLoading(false)
+      if (companyId) {
+        setRunningCompanies(prev => {
+          const newSet = new Set(prev)
+          newSet.delete(companyId)
+          return newSet
+        })
+      } else {
+        setRunAllLoading(false)
+      }
     }
   }
 
@@ -174,11 +189,11 @@ const WatchlistTab = () => {
         <div className="flex gap-3">
           <Button 
             onClick={() => runWatchlist()} 
-            disabled={loading}
+            disabled={runAllLoading}
             variant="outline"
           >
             <Play className="h-4 w-4 mr-2" />
-            Run All
+            {runAllLoading ? 'Running...' : 'Run All'}
           </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
@@ -286,10 +301,10 @@ const WatchlistTab = () => {
                       size="sm" 
                       variant="outline"
                       onClick={() => runWatchlist(companyWithWatch.company.id)}
-                      disabled={loading}
+                      disabled={runningCompanies.has(companyWithWatch.company.id)}
                     >
                       <Play className="h-4 w-4 mr-1" />
-                      Run Now
+                      {runningCompanies.has(companyWithWatch.company.id) ? 'Running...' : 'Run Now'}
                     </Button>
                   </div>
                 </div>
