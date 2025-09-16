@@ -65,6 +65,24 @@ async def get_vendor(company_id: int):
         raise HTTPException(status_code=404, detail="Company not found")
     return company
 
+@app.put("/vendors/{company_id}", response_model=Company)
+async def update_vendor(company_id: int, request: AddVendorRequest):
+    """Update a vendor's information"""
+    company = db.get_company(company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    # Update company fields
+    company.name = request.name
+    company.domains = request.domains
+    company.linkedin_url = request.linkedin_url
+    company.github_org = request.github_org
+    company.tags = request.tags
+    
+    # Update in database
+    updated_company = db.update_company(company)
+    return updated_company
+
 @app.post("/run/watchlist")
 async def run_watchlist(request: RunWatchlistRequest = None):
     """Run the watchlist crawl for specified companies or all companies"""
@@ -83,72 +101,122 @@ async def run_watchlist(request: RunWatchlistRequest = None):
             vendor_watches = db.get_vendor_watches_by_company(company.id)
             
             for watch in vendor_watches:
-                include_domains = []
-                for domain in company.domains:
-                    for path in watch.include_paths:
-                        include_domains.append(f"{domain}{path}")
+                # Use base domains for better search results
+                include_domains = company.domains.copy()
                 
-                search_result = await exa.search(
-                    query=f"{company.name} updates",
-                    include_domains=include_domains,
-                    start_published_date=(datetime.utcnow() - timedelta(days=7)).isoformat(),
-                    num_results=10
-                )
+                # Create specific queries for each path type
+                queries = []
+                if '/pricing' in watch.include_paths:
+                    queries.append(f"{company.name} pricing")
+                if '/release-notes' in watch.include_paths or '/changelog' in watch.include_paths:
+                    queries.append(f"{company.name} changelog release notes")
+                if '/security' in watch.include_paths:
+                    queries.append(f"{company.name} security updates")
                 
-                if search_result.get("results"):
-                    urls = [result["url"] for result in search_result["results"]]
-                    
-                    contents_result = await exa.get_contents(
-                        ids=urls,
-                        text=True,
-                        livecrawl="preferred",
-                        summary={
-                            "query": "Extract pricing information, product updates, and security changes",
-                            "schema": {
-                                "type": "object",
-                                "properties": {
-                                    "pricing_changes": {"type": "array", "items": {"type": "string"}},
-                                    "product_updates": {"type": "array", "items": {"type": "string"}},
-                                    "security_updates": {"type": "array", "items": {"type": "string"}}
-                                }
-                            }
-                        }
-                    )
-                    
-                    for content in contents_result.get("results", []):
-                        if content.get("summary"):
-                            summary_data = content["summary"]
+                # Search for recent updates in the last month
+                from datetime import datetime, timedelta
+                last_month = datetime.utcnow() - timedelta(days=30)
+                start_date = last_month.isoformat()
+                
+                print(f"DEBUG: Searching for {company.name} updates since {start_date}")
+                
+                # Search for recent updates
+                search_queries = [
+                    f"{company.name} new features product updates",
+                    f"{company.name} pricing changes updates",
+                    f"{company.name} discounts promotions offers"
+                ]
+                
+                all_urls = []
+                answer_result = None
+                
+                for query in search_queries:
+                    try:
+                        search_result = await exa.search(
+                            query=query,
+                            include_domains=include_domains,
+                            start_published_date=start_date,
+                            num_results=10
+                        )
+                        print(f"DEBUG: Search result for query '{query}': {search_result}")
+                        
+                        if isinstance(search_result, dict) and search_result.get("results"):
+                            urls = [result["url"] for result in search_result["results"]]
+                            all_urls.extend(urls)
+                            print(f"DEBUG: Found {len(urls)} URLs for query '{query}'")
+                    except Exception as e:
+                        print(f"DEBUG: Error in search for query '{query}': {str(e)}")
+                        continue
+                
+                # Remove duplicates
+                all_urls = list(set(all_urls))
+                print(f"DEBUG: Total unique URLs found: {len(all_urls)}")
+                
+                if all_urls:
+                    try:
+                        # Use Exa answer API to extract specific information
+                        answer_query = f"""
+                        Analyze the following {company.name} content and extract:
+                        1. New product features launched in the last month
+                        2. Pricing changes or updates in the last month  
+                        3. Any discounts, promotions, or special offers in the last month
+                        
+                        For each finding, provide:
+                        - Clear description of what changed
+                        - Date or timeframe if mentioned
+                        - Impact or significance
+                        - Source URL
+                        
+                        Focus only on changes from the last 30 days.
+                        """
+                        
+                        print(f"DEBUG: Getting answer for {len(all_urls)} URLs")
+                        answer_result = await exa.answer(
+                            query=answer_query,
+                            urls=all_urls,
+                            text=True
+                        )
+                        
+                        print(f"DEBUG: Answer result: {answer_result}")
+                        
+                        # Process the answer and create signals
+                        if answer_result.get("answer"):
+                            answer_text = answer_result["answer"]
+                            citations = answer_result.get("citations", [])
                             
-                            if summary_data.get("pricing_changes"):
-                                signal = Signal(
-                                    company_id=company.id,
-                                    type=SignalType.PRICING_CHANGE,
-                                    title=f"Pricing changes detected for {company.name}",
-                                    summary="; ".join(summary_data["pricing_changes"]),
-                                    severity=SignalSeverity.HIGH,
-                                    confidence=0.8,
-                                    urls=[content["url"]]
-                                )
-                                db.create_signal(signal)
-                            
-                            if summary_data.get("product_updates"):
-                                signal = Signal(
-                                    company_id=company.id,
-                                    type=SignalType.PRODUCT_UPDATE,
-                                    title=f"Product updates for {company.name}",
-                                    summary="; ".join(summary_data["product_updates"]),
-                                    severity=SignalSeverity.MEDIUM,
-                                    confidence=0.7,
-                                    urls=[content["url"]]
-                                )
-                                db.create_signal(signal)
+                            # Create a comprehensive signal with all findings
+                            signal = Signal(
+                                company_id=company.id,
+                                type=SignalType.PRODUCT_UPDATE,
+                                title=f"Recent Updates for {company.name} (Last 30 Days)",
+                                summary=answer_text,
+                                severity=SignalSeverity.MEDIUM,
+                                confidence=0.8,
+                                urls=citations
+                            )
+                            db.create_signal(signal)
+                            print(f"DEBUG: Created signal for {company.name} with {len(citations)} citations")
+                        
+                    except Exception as e:
+                        print(f"DEBUG: Error getting answer: {str(e)}")
+                        import traceback
+                        print(f"DEBUG: Answer traceback: {traceback.format_exc()}")
+                else:
+                    print(f"DEBUG: No URLs found for {company.name}")
                 
                 watch.last_run_at = datetime.utcnow()
+                
+                # Store answer content for frontend display
+                answer_content = answer_result.get("answer", "") if answer_result else ""
+                citations = answer_result.get("citations", []) if answer_result else []
                 
                 results.append({
                     "company": company.name,
                     "paths_checked": watch.include_paths,
-                    "urls_found": len(search_result.get("results", []))
+                    "urls_found": len(all_urls),
+                    "signals_created": 1 if all_urls else 0,
+                    "answer_content": answer_content,
+                    "citations": citations
                 })
         
         return {"message": "Watchlist run completed", "results": results}

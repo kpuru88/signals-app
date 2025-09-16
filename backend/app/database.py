@@ -33,6 +33,13 @@ class InMemoryDatabase:
     def list_companies(self) -> List[Company]:
         return list(self.companies.values())
 
+    def update_company(self, company: Company) -> Company:
+        if company.id and company.id in self.companies:
+            self.companies[company.id] = company
+            return company
+        else:
+            raise ValueError(f"Company with id {company.id} not found")
+
     def create_vendor_watch(self, vendor_watch: VendorWatch) -> VendorWatch:
         vendor_watch.id = self._vendor_watch_counter
         vendor_watch.created_at = datetime.utcnow()
