@@ -102,12 +102,29 @@ async def run_watchlist(request: Optional[RunWatchlistRequest] = None):
                     for path in watch.include_paths:
                         include_domains.append(f"{domain}{path}")
                 
+                path_queries = []
+                for path in watch.include_paths:
+                    if "/pricing" in path:
+                        path_queries.append(f"{company.name} pricing changes plans costs")
+                    elif "/release-notes" in path or "/changelog" in path:
+                        path_queries.append(f"{company.name} release notes updates changelog")
+                    elif "/security" in path:
+                        path_queries.append(f"{company.name} security updates compliance")
+                    else:
+                        path_queries.append(f"{company.name} {path.replace('/', '')} updates")
+                
+                query = path_queries[0] if path_queries else f"{company.name} updates"
+                
+                print(f"DEBUG: Using targeted query: {query}")
+                print(f"DEBUG: Include domains: {include_domains}")
+                
                 search_result = await exa.search(
-                    query=f"{company.name} updates",
+                    query=query,
                     include_domains=include_domains,
-                    start_published_date=(datetime.utcnow() - timedelta(days=7)).isoformat(),
                     num_results=10
                 )
+                
+                print(f"DEBUG: Search result URLs: {[r.get('url') for r in search_result.get('results', [])]}")
                 
                 if search_result.get("results"):
                     urls = [result["url"] for result in search_result["results"]]
@@ -129,33 +146,76 @@ async def run_watchlist(request: Optional[RunWatchlistRequest] = None):
                         }
                     )
                     
+                    print(f"DEBUG: Contents result count: {len(contents_result.get('results', []))}")
+                    
                     for content in contents_result.get("results", []):
+                        print(f"DEBUG: Processing content from URL: {content.get('url')}")
+                        print(f"DEBUG: Content summary: {content.get('summary')}")
+                        
                         if content.get("summary"):
                             summary_data = content["summary"]
+                            print(f"DEBUG: Summary data type: {type(summary_data)}")
+                            print(f"DEBUG: Summary data content: {summary_data}")
                             
-                            if summary_data.get("pricing_changes"):
-                                signal = Signal(
-                                    company_id=company.id,
-                                    type=SignalType.PRICING_CHANGE,
-                                    title=f"Pricing changes detected for {company.name}",
-                                    summary="; ".join(summary_data["pricing_changes"]),
-                                    severity=SignalSeverity.HIGH,
-                                    confidence=0.8,
-                                    urls=[content["url"]]
-                                )
-                                db.create_signal(signal)
+                            if isinstance(summary_data, str):
+                                try:
+                                    import json
+                                    summary_data = json.loads(summary_data)
+                                except:
+                                    print(f"DEBUG: Could not parse summary as JSON: {summary_data}")
+                                    continue
                             
-                            if summary_data.get("product_updates"):
-                                signal = Signal(
-                                    company_id=company.id,
-                                    type=SignalType.PRODUCT_UPDATE,
-                                    title=f"Product updates for {company.name}",
-                                    summary="; ".join(summary_data["product_updates"]),
-                                    severity=SignalSeverity.MEDIUM,
-                                    confidence=0.7,
-                                    urls=[content["url"]]
-                                )
-                                db.create_signal(signal)
+                            if not isinstance(summary_data, dict):
+                                print(f"DEBUG: Summary data is not a dict, skipping: {type(summary_data)}")
+                                continue
+                            
+                            if summary_data.get("pricing_changes") and company.id is not None:
+                                try:
+                                    signal = Signal(
+                                        company_id=company.id,
+                                        type=SignalType.PRICING_CHANGE,
+                                        title=f"Pricing changes detected for {company.name}",
+                                        summary="; ".join(summary_data["pricing_changes"]),
+                                        severity=SignalSeverity.HIGH,
+                                        confidence=0.8,
+                                        urls=[content["url"]]
+                                    )
+                                    created_signal = db.create_signal(signal)
+                                    print(f"DEBUG: Created pricing signal with ID: {created_signal.id}")
+                                except Exception as e:
+                                    print(f"DEBUG: Error creating pricing signal: {str(e)}")
+                            
+                            if summary_data.get("product_updates") and company.id is not None:
+                                try:
+                                    signal = Signal(
+                                        company_id=company.id,
+                                        type=SignalType.PRODUCT_UPDATE,
+                                        title=f"Product updates for {company.name}",
+                                        summary="; ".join(summary_data["product_updates"]),
+                                        severity=SignalSeverity.MEDIUM,
+                                        confidence=0.7,
+                                        urls=[content["url"]]
+                                    )
+                                    created_signal = db.create_signal(signal)
+                                    print(f"DEBUG: Created product signal with ID: {created_signal.id}")
+                                except Exception as e:
+                                    print(f"DEBUG: Error creating product signal: {str(e)}")
+                            
+                            if summary_data.get("security_updates") and company.id is not None:
+                                try:
+                                    signal = Signal(
+                                        company_id=company.id,
+                                        type=SignalType.SECURITY_UPDATE,
+                                        title=f"Security updates for {company.name}",
+                                        summary="; ".join(summary_data["security_updates"]),
+                                        severity=SignalSeverity.HIGH,
+                                        confidence=0.8,
+                                        urls=[content["url"]]
+                                    )
+                                    created_signal = db.create_signal(signal)
+                                    print(f"DEBUG: Created security signal with ID: {created_signal.id}")
+                                except Exception as e:
+                                    print(f"DEBUG: Error creating security signal: {str(e)}")
                 
                 watch.last_run_at = datetime.utcnow()
                 
