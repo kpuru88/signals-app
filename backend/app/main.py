@@ -359,21 +359,42 @@ async def get_tearsheet(company_id: int):
                 departments[dept] = dept_jobs
                 print(f"DEBUG: {dept} jobs found: {dept_jobs}")
             
-            # Also search for last year's jobs for comparison
+            # Also search for last year's jobs for comparison using same department approach
             last_year_jobs = 0
             try:
-                last_year_query = f"{company.name} jobs {last_year} site:linkedin.com"
-                last_year_search = await exa.search(
-                    query=last_year_query,
-                    include_domains=["linkedin.com"],
-                    num_results=20,
-                    start_published_date=f"{last_year}-01-01",
-                    end_published_date=f"{last_year}-12-31"
-                )
+                print(f"DEBUG: Searching for {last_year} jobs using department approach...")
                 
-                if last_year_search and isinstance(last_year_search, dict):
-                    last_year_jobs = len(last_year_search.get("results", []))
-                    print(f"DEBUG: Last year jobs found: {last_year_jobs}")
+                # Use the same department-specific approach for last year
+                for dept, queries in job_queries.items():
+                    for query in queries:
+                        # Modify query for last year
+                        last_year_query = query.replace(f"{current_year}", f"{last_year}")
+                        print(f"DEBUG: Last year query: {last_year_query}")
+                        
+                        try:
+                            search_result = await exa.search(
+                                query=last_year_query,
+                                include_domains=["linkedin.com"],
+                                num_results=10,
+                                start_published_date=f"{last_year}-01-01",
+                                end_published_date=f"{last_year}-12-31"
+                            )
+                            
+                            if search_result and isinstance(search_result, dict):
+                                results = search_result.get("results", [])
+                                print(f"DEBUG: Found {len(results)} results for {last_year_query}")
+                                
+                                # Count jobs that match the company name
+                                for result in results:
+                                    title = result.get("title", "")
+                                    if title and company.name.lower() in title.lower():
+                                        last_year_jobs += 1
+                        
+                        except Exception as e:
+                            print(f"DEBUG: Error searching {dept} jobs for {last_year}: {str(e)}")
+                            continue
+                
+                print(f"DEBUG: Total last year jobs found: {last_year_jobs}")
                     
             except Exception as e:
                 print(f"DEBUG: Error searching last year jobs: {str(e)}")
