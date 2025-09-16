@@ -4,19 +4,19 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { 
   Plus, 
   Play, 
-  ExternalLink, 
   TrendingUp, 
-  TrendingDown, 
   Clock,
   Building2,
   Globe,
   FileText,
-  Shield
+  Shield,
+  Edit2,
+  Check,
+  X
 } from 'lucide-react'
 
 interface Company {
@@ -29,18 +29,20 @@ interface Company {
   created_at?: string
 }
 
-interface VendorWatch {
-  id: number
-  company_id: number
-  include_paths: string[]
-  last_run_at?: string
-  schedule: string
-}
 
 const WatchlistTab = () => {
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(false)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
+  const [editingCompany, setEditingCompany] = useState<number | null>(null)
+  const [editingName, setEditingName] = useState('')
+  const [isResultsDialogOpen, setIsResultsDialogOpen] = useState(false)
+  const [watchlistResults, setWatchlistResults] = useState<any>(null)
+  const [companyResults, setCompanyResults] = useState<{[key: number]: any}>({})
+  const [companyDialogs, setCompanyDialogs] = useState<{[key: number]: boolean}>({})
+
+  // Debug log for dialog state
+  console.log('Dialog state:', isResultsDialogOpen, 'Watchlist results:', watchlistResults)
   const [newVendor, setNewVendor] = useState({
     name: '',
     domains: '',
@@ -107,7 +109,45 @@ const WatchlistTab = () => {
     }
   }
 
-  const runWatchlist = async (companyId?: number) => {
+  const runWatchlist = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch(`${API_BASE}/run/watchlist`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({})
+      })
+
+      if (response.ok) {
+        const result = await response.json()
+        console.log('Watchlist run result:', result)
+        
+        // Store results for display
+        setWatchlistResults(result)
+        
+        // Show success message
+        const totalUrls = result.results?.reduce((sum: number, r: any) => sum + r.urls_found, 0) || 0
+        const companiesChecked = result.results?.length || 0
+        const signalsCreated = result.results?.reduce((sum: number, r: any) => sum + (r.signals_created || 0), 0) || 0
+        
+        alert(`Watchlist run completed successfully!\n\nCompanies checked: ${companiesChecked}\nURLs found: ${totalUrls}\nSignals created: ${signalsCreated}\n\nClick "View Results" to see detailed analysis.`)
+        
+        await fetchVendors()
+      } else {
+        const errorData = await response.json()
+        alert(`Error running watchlist: ${errorData.detail || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error running watchlist:', error)
+      alert(`Error running watchlist: ${error instanceof Error ? error.message : 'Network error'}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const runCompanyWatchlist = async (companyId: number) => {
     setLoading(true)
     try {
       const response = await fetch(`${API_BASE}/run/watchlist`, {
@@ -116,17 +156,87 @@ const WatchlistTab = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          company_ids: companyId ? [companyId] : null
+          company_ids: [companyId]
         })
       })
 
       if (response.ok) {
         const result = await response.json()
-        console.log('Watchlist run result:', result)
+        console.log('Company watchlist run result:', result)
+        
+        // Store results for this specific company
+        if (result.results && result.results.length > 0) {
+          const companyResult = result.results[0]
+          setCompanyResults(prev => ({
+            ...prev,
+            [companyId]: companyResult
+          }))
+          
+          // Show success message
+          const urlsFound = companyResult.urls_found || 0
+          const signalsCreated = companyResult.signals_created || 0
+          
+          alert(`Company watchlist run completed!\n\nURLs found: ${urlsFound}\nSignals created: ${signalsCreated}\n\nClick "View Results" to see detailed analysis.`)
+        }
+        
         await fetchVendors()
+      } else {
+        const errorData = await response.json()
+        alert(`Error running watchlist for company: ${errorData.detail || 'Unknown error'}`)
       }
     } catch (error) {
-      console.error('Error running watchlist:', error)
+      console.error('Error running company watchlist:', error)
+      alert(`Error running watchlist: ${error instanceof Error ? error.message : 'Network error'}`)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+
+  const startEditing = (company: Company) => {
+    setEditingCompany(company.id)
+    setEditingName(company.name)
+  }
+
+  const cancelEditing = () => {
+    setEditingCompany(null)
+    setEditingName('')
+  }
+
+  const saveEditing = async (companyId: number) => {
+    if (!editingName.trim()) return
+
+    setLoading(true)
+    try {
+      const company = companies.find(c => c.id === companyId)
+      if (!company) return
+
+      const response = await fetch(`${API_BASE}/vendors/${companyId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: editingName.trim(),
+          domains: company.domains,
+          include_paths: ['/pricing', '/release-notes', '/security'],
+          linkedin_url: company.linkedin_url || null,
+          github_org: company.github_org || null,
+          tags: company.tags
+        })
+      })
+
+      if (response.ok) {
+        await fetchVendors()
+        setEditingCompany(null)
+        setEditingName('')
+      } else {
+        const errorData = await response.json()
+        alert(`Error updating company: ${errorData.detail || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error updating company:', error)
+      alert(`Error updating company: ${error instanceof Error ? error.message : 'Network error'}`)
     } finally {
       setLoading(false)
     }
@@ -150,7 +260,7 @@ const WatchlistTab = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900">Vendor Watchlist</h2>
+          <h2 className="text-3xl font-bold text-gray-900">Company Watchlist</h2>
           <p className="text-gray-600 mt-2">Monitor pricing, release notes, and security updates</p>
         </div>
         <div className="flex gap-3">
@@ -159,14 +269,27 @@ const WatchlistTab = () => {
             disabled={loading}
             variant="outline"
           >
-            <Play className="h-4 w-4 mr-2" />
-            Run All
+            {loading ? (
+              <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600"></div>
+            ) : (
+              <Play className="h-4 w-4 mr-2" />
+            )}
+            {loading ? 'Running...' : 'Run Now'}
+          </Button>
+          
+          <Button 
+            onClick={() => setIsResultsDialogOpen(true)}
+            variant="secondary"
+            disabled={!watchlistResults}
+          >
+            <FileText className="h-4 w-4 mr-2" />
+            View Results
           </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
-                Add Vendor
+                Add Company
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[525px]">
@@ -228,7 +351,7 @@ const WatchlistTab = () => {
                   Cancel
                 </Button>
                 <Button onClick={addVendor} disabled={loading}>
-                  Add Vendor
+                  Add Company
                 </Button>
               </div>
             </DialogContent>
@@ -254,25 +377,61 @@ const WatchlistTab = () => {
             <Card key={company.id} className="hover:shadow-md transition-shadow">
               <CardHeader>
                 <div className="flex justify-between items-start">
-                  <div>
+                  <div className="flex-1">
                     <CardTitle className="flex items-center gap-3">
                       <Building2 className="h-5 w-5 text-blue-600" />
-                      {company.name}
+                      {editingCompany === company.id ? (
+                        <div className="flex items-center gap-2 flex-1">
+                          <Input
+                            value={editingName}
+                            onChange={(e) => setEditingName(e.target.value)}
+                            className="text-lg font-semibold h-8"
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                saveEditing(company.id)
+                              } else if (e.key === 'Escape') {
+                                cancelEditing()
+                              }
+                            }}
+                            autoFocus
+                          />
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => saveEditing(company.id)}
+                            disabled={loading || !editingName.trim()}
+                            className="h-8 w-8 p-0"
+                          >
+                            <Check className="h-4 w-4 text-green-600" />
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={cancelEditing}
+                            disabled={loading}
+                            className="h-8 w-8 p-0"
+                          >
+                            <X className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 group">
+                          <span>{company.name}</span>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => startEditing(company)}
+                            disabled={loading}
+                            className="h-6 w-6 p-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            <Edit2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      )}
                     </CardTitle>
                     <CardDescription className="mt-2">
                       Monitoring: {company.domains.join(', ')}
                     </CardDescription>
-                  </div>
-                  <div className="flex gap-2">
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      onClick={() => runWatchlist(company.id)}
-                      disabled={loading}
-                    >
-                      <Play className="h-4 w-4 mr-1" />
-                      Run Now
-                    </Button>
                   </div>
                 </div>
               </CardHeader>
@@ -301,15 +460,43 @@ const WatchlistTab = () => {
                     </div>
                   )}
 
-                  <div className="flex items-center gap-4 text-sm text-gray-500">
-                    <div className="flex items-center gap-1">
-                      <Clock className="h-4 w-4" />
-                      Last run: Never
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                      <div className="flex items-center gap-1">
+                        <Clock className="h-4 w-4" />
+                        Last run: Never
+                      </div>
+                      <Badge variant="outline" className="text-blue-600 border-blue-600">
+                        <div className="w-2 h-2 bg-blue-600 rounded-full mr-2"></div>
+                        READY
+                      </Badge>
                     </div>
-                    <Badge variant="outline" className="text-blue-600 border-blue-600">
-                      <div className="w-2 h-2 bg-blue-600 rounded-full mr-2"></div>
-                      READY
-                    </Badge>
+                    
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => runCompanyWatchlist(company.id)}
+                        disabled={loading}
+                        size="sm"
+                        variant="outline"
+                      >
+                        {loading ? (
+                          <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600"></div>
+                        ) : (
+                          <Play className="h-4 w-4 mr-2" />
+                        )}
+                        Run Now
+                      </Button>
+                      
+                      <Button
+                        onClick={() => setCompanyDialogs(prev => ({...prev, [company.id]: true}))}
+                        disabled={!companyResults[company.id]}
+                        size="sm"
+                        variant="secondary"
+                      >
+                        <FileText className="h-4 w-4 mr-2" />
+                        View Results
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -317,6 +504,262 @@ const WatchlistTab = () => {
           ))}
         </div>
       )}
+
+      {/* Watchlist Results Dialog */}
+      <Dialog open={isResultsDialogOpen} onOpenChange={setIsResultsDialogOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Watchlist Analysis Results</DialogTitle>
+            <DialogDescription>
+              Detailed analysis of recent updates, pricing changes, and discounts from the last 30 days
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="p-4 bg-yellow-100 border border-yellow-300 rounded mb-4">
+            <p className="text-sm text-yellow-800">
+              <strong>Debug:</strong> Dialog is open: {isResultsDialogOpen ? 'YES' : 'NO'}, 
+              Results available: {watchlistResults ? 'YES' : 'NO'}
+            </p>
+          </div>
+          
+          {watchlistResults ? (
+            <div className="space-y-6">
+            {/* Summary Stats */}
+            <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+              <div className="text-center">
+                <div className="text-2xl font-bold text-blue-600">
+                  {watchlistResults?.results?.length || 0}
+                </div>
+                <div className="text-sm text-gray-600">Companies Checked</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-green-600">
+                  {watchlistResults?.results?.reduce((sum: number, r: any) => sum + (r.urls_found || 0), 0) || 0}
+                </div>
+                <div className="text-sm text-gray-600">URLs Found</div>
+              </div>
+              <div className="text-center">
+                <div className="text-2xl font-bold text-purple-600">
+                  {watchlistResults?.results?.reduce((sum: number, r: any) => sum + (r.signals_created || 0), 0) || 0}
+                </div>
+                <div className="text-sm text-gray-600">Signals Created</div>
+              </div>
+            </div>
+
+            {/* Company Results */}
+            {watchlistResults?.results?.map((result: any, index: number) => (
+              <div key={index} className="border rounded-lg p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-lg font-semibold text-gray-900">{result.company}</h3>
+                  <div className="flex gap-2 text-sm text-gray-500">
+                    <span>{result.urls_found || 0} URLs</span>
+                    <span>•</span>
+                    <span>{result.signals_created || 0} signals</span>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div>
+                    <span className="text-sm font-medium text-gray-600">Monitored Paths:</span>
+                    <div className="flex flex-wrap gap-1 mt-1">
+                      {(result.paths_checked || []).map((path: string, i: number) => (
+                        <Badge key={i} variant="secondary" className="text-xs">{path}</Badge>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  {result.urls_found === 0 && (
+                    <div className="text-sm text-gray-500 italic">
+                      No recent updates found in the last 30 days
+                    </div>
+                  )}
+                  
+                    {result.answer_content && (
+                      <div className="mt-4">
+                        <h4 className="text-sm font-medium text-gray-700 mb-2">AI Analysis Results:</h4>
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                          <div 
+                            className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed prose prose-sm max-w-none"
+                            dangerouslySetInnerHTML={{
+                              __html: result.answer_content
+                                .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                .replace(/\n/g, '<br/>')
+                                .replace(/(https?:\/\/[^\s<>"{}|\\^`[\]]+?)(?=[\s<>"{}|\\^`[\]]|$|[.,;:!?\)\]])/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">$1</a>')
+                            }}
+                          />
+                        </div>
+                        
+                        {result.citations && result.citations.length > 0 && (
+                          <div className="mt-3">
+                            <h5 className="text-sm font-medium text-gray-700 mb-2">Source URLs:</h5>
+                            <div className="space-y-2 max-h-32 overflow-y-auto">
+                              {result.citations.map((citation: any, i: number) => (
+                                <div key={i} className="text-xs border-l-2 border-blue-200 pl-2">
+                                  <a 
+                                    href={typeof citation === 'string' ? citation : citation.url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-800 underline break-all"
+                                  >
+                                    {typeof citation === 'string' ? citation : citation.url}
+                                  </a>
+                                  {typeof citation === 'object' && citation.title && (
+                                    <div className="text-gray-500 mt-1 truncate">
+                                      {citation.title}
+                                    </div>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  
+                  {result.signals_created > 0 && (
+                    <div className="text-sm text-green-600 font-medium flex items-center gap-2">
+                      <span>✓</span>
+                      <span>New signals created - check the Signals tab for details</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+
+            {/* Debug Information (if available) */}
+            {watchlistResults?.debug && (
+              <div className="border-t pt-4">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">Debug Information</h4>
+                <pre className="text-xs bg-gray-100 p-3 rounded overflow-x-auto">
+                  {JSON.stringify(watchlistResults.debug, null, 2)}
+                </pre>
+              </div>
+            )}
+            </div>
+          ) : (
+            <div className="text-center py-8 text-gray-500">
+              <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+              <p>No results available</p>
+              <p className="text-sm">Run the watchlist first to see analysis results</p>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Individual Company Dialogs */}
+      {companies.map((company) => (
+        <Dialog 
+          key={company.id}
+          open={companyDialogs[company.id] || false} 
+          onOpenChange={(open) => setCompanyDialogs(prev => ({...prev, [company.id]: open}))}
+        >
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>{company.name} - Analysis Results</DialogTitle>
+              <DialogDescription>
+                Recent updates, pricing changes, and discounts from the last 30 days
+              </DialogDescription>
+            </DialogHeader>
+            
+            {companyResults[company.id] && (
+              <div className="space-y-6">
+                {/* Summary Stats */}
+                <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-blue-600">
+                      {companyResults[company.id].urls_found || 0}
+                    </div>
+                    <div className="text-sm text-gray-600">URLs Found</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-green-600">
+                      {companyResults[company.id].signals_created || 0}
+                    </div>
+                    <div className="text-sm text-gray-600">Signals Created</div>
+                  </div>
+                  <div className="text-center">
+                    <div className="text-2xl font-bold text-purple-600">
+                      {(companyResults[company.id].paths_checked || []).length}
+                    </div>
+                    <div className="text-sm text-gray-600">Paths Monitored</div>
+                  </div>
+                </div>
+
+                {/* Monitored Paths */}
+                <div>
+                  <h4 className="text-sm font-medium text-gray-700 mb-2">Monitored Paths:</h4>
+                  <div className="flex flex-wrap gap-1">
+                    {(companyResults[company.id].paths_checked || []).map((path: string, i: number) => (
+                      <Badge key={i} variant="secondary" className="text-xs">{path}</Badge>
+                    ))}
+                  </div>
+                </div>
+
+                {/* AI Analysis Results */}
+                {companyResults[company.id].answer_content && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">AI Analysis Results:</h4>
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div 
+                        className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed prose prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{
+                          __html: companyResults[company.id].answer_content
+                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                            .replace(/\n/g, '<br/>')
+                            .replace(/(https?:\/\/[^\s<>"{}|\\^`[\]]+?)(?=[\s<>"{}|\\^`[\]]|$|[.,;:!?\)\]])/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">$1</a>')
+                        }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Source URLs */}
+                {companyResults[company.id].citations && companyResults[company.id].citations.length > 0 && (
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Source URLs:</h4>
+                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                      {companyResults[company.id].citations.map((citation: any, i: number) => (
+                        <div key={i} className="text-xs border-l-2 border-blue-200 pl-2">
+                          <a 
+                            href={typeof citation === 'string' ? citation : citation.url} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="text-blue-600 hover:text-blue-800 underline break-all"
+                          >
+                            {typeof citation === 'string' ? citation : citation.url}
+                          </a>
+                          {typeof citation === 'object' && citation.title && (
+                            <div className="text-gray-500 mt-1 truncate">
+                              {citation.title}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* No Results Message */}
+                {!companyResults[company.id].answer_content && (
+                  <div className="text-center py-8 text-gray-500">
+                    <FileText className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+                    <p>No recent updates found in the last 30 days</p>
+                    <p className="text-sm">Try running the analysis again or check back later</p>
+                  </div>
+                )}
+
+                {/* Signals Created Indicator */}
+                {companyResults[company.id].signals_created > 0 && (
+                  <div className="text-sm text-green-600 font-medium flex items-center gap-2">
+                    <span>✓</span>
+                    <span>New signals created - check the Signals tab for details</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      ))}
     </div>
   )
 }
