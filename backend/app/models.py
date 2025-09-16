@@ -1,0 +1,94 @@
+from pydantic import BaseModel
+from typing import List, Optional, Dict, Any
+from datetime import datetime
+from enum import Enum
+
+class SignalType(str, Enum):
+    PRICING_CHANGE = "pricing_change"
+    PRODUCT_UPDATE = "product_update"
+    SECURITY_UPDATE = "security_update"
+    FUNDING = "funding"
+    HIRING = "hiring"
+
+class SignalSeverity(str, Enum):
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+
+class Company(BaseModel):
+    id: Optional[int] = None
+    name: str
+    domains: List[str]
+    linkedin_url: Optional[str] = None
+    github_org: Optional[str] = None
+    tags: List[str] = []
+    created_at: Optional[datetime] = None
+
+class VendorWatch(BaseModel):
+    id: Optional[int] = None
+    company_id: int
+    include_paths: List[str]  # e.g., ["/pricing", "/release-notes", "/security"]
+    last_run_at: Optional[datetime] = None
+    schedule: str = "weekly"
+    created_at: Optional[datetime] = None
+
+class PageSnapshot(BaseModel):
+    id: Optional[int] = None
+    company_id: int
+    url: str
+    content_hash: str
+    fetched_at: datetime
+    text_md: str
+    summary_json: Dict[str, Any]
+
+class Diff(BaseModel):
+    id: Optional[int] = None
+    snapshot_id_old: int
+    snapshot_id_new: int
+    diff_json: Dict[str, Any]
+    severity: SignalSeverity
+    section: str  # "pricing", "changelog", "security"
+
+class Signal(BaseModel):
+    id: Optional[int] = None
+    company_id: int
+    type: SignalType
+    title: str
+    summary: str
+    severity: SignalSeverity
+    confidence: float
+    urls: List[str]
+    created_at: Optional[datetime] = None
+
+class Report(BaseModel):
+    id: Optional[int] = None
+    period_start: datetime
+    period_end: datetime
+    contents_md: str
+    url_list: List[str]
+    created_at: Optional[datetime] = None
+
+class AddVendorRequest(BaseModel):
+    name: str
+    domains: List[str]
+    include_paths: List[str]
+    linkedin_url: Optional[str] = None
+    github_org: Optional[str] = None
+    tags: List[str] = []
+
+class RunWatchlistRequest(BaseModel):
+    company_ids: Optional[List[int]] = None  # If None, run for all companies
+
+class TearSheetResponse(BaseModel):
+    company: Company
+    overview: str
+    funding: Dict[str, Any]
+    hiring_signals: Dict[str, Any]
+    product_updates: List[Dict[str, Any]]
+    key_customers: List[str]
+    citations: List[str]
+
+class WeeklyReportRequest(BaseModel):
+    period_start: datetime
+    period_end: datetime
+    company_ids: Optional[List[int]] = None
