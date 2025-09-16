@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from typing import List, Optional
+from typing import List, Optional, Dict, Any
 import os
 from dotenv import load_dotenv
 from datetime import datetime, timedelta
@@ -8,8 +8,8 @@ import hashlib
 import json
 
 from .models import (
-    Company, VendorWatch, Signal, Report,
-    AddVendorRequest, RunWatchlistRequest, TearSheetResponse, WeeklyReportRequest,
+    Company, CompanyWatch, Signal, Report, TearSheet,
+    AddCompanyRequest, RunWatchlistRequest, TearSheetResponse, WeeklyReportRequest,
     SignalType, SignalSeverity
 )
 from .database import db
@@ -32,9 +32,9 @@ app.add_middleware(
 async def healthz():
     return {"status": "ok"}
 
-@app.post("/vendors/watch", response_model=Company)
-async def add_vendor(request: AddVendorRequest):
-    """Add a vendor to the watchlist"""
+@app.post("/companies/watch", response_model=Company)
+async def add_company(request: AddCompanyRequest):
+    """Add a company to the watchlist"""
     company = Company(
         name=request.name,
         domains=request.domains,
@@ -44,29 +44,41 @@ async def add_vendor(request: AddVendorRequest):
     )
     company = db.create_company(company)
     
-    vendor_watch = VendorWatch(
+    company_watch = CompanyWatch(
         company_id=company.id,
         include_paths=request.include_paths
     )
-    db.create_vendor_watch(vendor_watch)
+    db.create_company_watch(company_watch)
     
     return company
 
-@app.get("/vendors", response_model=List[Company])
-async def list_vendors():
-    """List all vendors in the watchlist"""
+@app.get("/companies", response_model=List[Company])
+async def list_companies():
+    """List all companies in the watchlist"""
     return db.list_companies()
 
-@app.get("/vendors/{company_id}", response_model=Company)
-async def get_vendor(company_id: int):
-    """Get a specific vendor"""
+@app.get("/companies/{company_id}", response_model=Company)
+async def get_company(company_id: int):
+    """Get a specific company"""
     company = db.get_company(company_id)
     if not company:
         raise HTTPException(status_code=404, detail="Company not found")
     return company
 
+@app.get("/companies/{company_id}/watch", response_model=Dict[str, Any])
+async def get_company_with_watch(company_id: int):
+    """Get a company with its watch data"""
+    company = db.get_company(company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    watches = db.get_company_watches_by_company(company_id)
+    return {
+        "company": company,
+        "include_paths": watches[0].include_paths if watches else []
+    }
+
 @app.post("/run/watchlist")
-async def run_watchlist(request: RunWatchlistRequest = None):
+async def run_watchlist(request: Optional[RunWatchlistRequest] = None):
     """Run the watchlist crawl for specified companies or all companies"""
     try:
         exa = get_exa_client()
@@ -80,9 +92,11 @@ async def run_watchlist(request: RunWatchlistRequest = None):
         results = []
         
         for company in companies:
-            vendor_watches = db.get_vendor_watches_by_company(company.id)
+            if company.id is None:
+                continue
+            company_watches = db.get_company_watches_by_company(company.id)
             
-            for watch in vendor_watches:
+            for watch in company_watches:
                 include_domains = []
                 for domain in company.domains:
                     for path in watch.include_paths:
@@ -168,6 +182,19 @@ async def get_tearsheet(company_id: int):
     
     print(f"DEBUG: Found company: {company.name}")
     
+    existing_tearsheet = db.get_tearsheet_by_company(company_id)
+    if existing_tearsheet:
+        print(f"DEBUG: Found existing tear sheet for company: {company.name}")
+        return TearSheetResponse(
+            company=company,
+            overview=existing_tearsheet.overview,
+            funding=existing_tearsheet.funding,
+            hiring_signals=existing_tearsheet.hiring_signals,
+            product_updates=existing_tearsheet.product_updates,
+            key_customers=existing_tearsheet.key_customers,
+            citations=existing_tearsheet.citations
+        )
+    
     try:
         exa = get_exa_client()
         print(f"DEBUG: Got Exa client successfully")
@@ -190,7 +217,7 @@ async def get_tearsheet(company_id: int):
         
         if not urls:
             print("DEBUG: No URLs found, returning basic response")
-            return TearSheetResponse(
+            tearsheet_data = TearSheetResponse(
                 company=company,
                 overview="No information available - no search results found",
                 funding={"status": "Information not available"},
@@ -199,24 +226,38 @@ async def get_tearsheet(company_id: int):
                 key_customers=[],
                 citations=[]
             )
+        else:
+            answer_result = await exa.answer(
+                query=f"Summarize what {company.name} does, their funding, recent releases, and notable customers. Include citations.",
+                urls=urls,
+                text=True
+            )
+            
+            print(f"DEBUG: Answer result: {answer_result}")
+            
+            tearsheet_data = TearSheetResponse(
+                company=company,
+                overview=answer_result.get("answer", "No overview available"),
+                funding={"status": "Information not available"},
+                hiring_signals={"status": "Information not available"},
+                product_updates=[],
+                key_customers=[],
+                citations=urls
+            )
         
-        answer_result = await exa.answer(
-            query=f"Summarize what {company.name} does, their funding, recent releases, and notable customers. Include citations.",
-            urls=urls,
-            text=True
+        tearsheet = TearSheet(
+            company_id=company_id,
+            overview=tearsheet_data.overview,
+            funding=tearsheet_data.funding,
+            hiring_signals=tearsheet_data.hiring_signals,
+            product_updates=tearsheet_data.product_updates,
+            key_customers=tearsheet_data.key_customers,
+            citations=tearsheet_data.citations
         )
+        db.create_tearsheet(tearsheet)
+        print(f"DEBUG: Saved tear sheet to database for company: {company.name}")
         
-        print(f"DEBUG: Answer result: {answer_result}")
-        
-        return TearSheetResponse(
-            company=company,
-            overview=answer_result.get("answer", "No overview available"),
-            funding={"status": "Information not available"},
-            hiring_signals={"status": "Information not available"},
-            product_updates=[],
-            key_customers=[],
-            citations=urls
-        )
+        return tearsheet_data
     
     except Exception as e:
         print(f"DEBUG: Exception occurred: {str(e)}")

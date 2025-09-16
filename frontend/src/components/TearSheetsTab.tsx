@@ -37,7 +37,7 @@ const TearSheetsTab = () => {
 
   const fetchCompanies = async () => {
     try {
-      const response = await fetch(`${API_BASE}/vendors`)
+      const response = await fetch(`${API_BASE}/companies`)
       if (response.ok) {
         const data = await response.json()
         setCompanies(data)
@@ -152,9 +152,9 @@ const TearSheetsTab = () => {
                           <Building2 className="h-4 w-4" />
                           Overview
                         </h3>
-                        <p className="text-gray-700 text-sm leading-relaxed">
+                        <div className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap max-h-48 overflow-y-auto">
                           {tearSheet.overview}
-                        </p>
+                        </div>
                       </div>
 
                       <div>

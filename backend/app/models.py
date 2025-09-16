@@ -24,7 +24,7 @@ class Company(BaseModel):
     tags: List[str] = []
     created_at: Optional[datetime] = None
 
-class VendorWatch(BaseModel):
+class CompanyWatch(BaseModel):
     id: Optional[int] = None
     company_id: int
     include_paths: List[str]  # e.g., ["/pricing", "/release-notes", "/security"]
@@ -68,7 +68,7 @@ class Report(BaseModel):
     url_list: List[str]
     created_at: Optional[datetime] = None
 
-class AddVendorRequest(BaseModel):
+class AddCompanyRequest(BaseModel):
     name: str
     domains: List[str]
     include_paths: List[str]
@@ -91,4 +91,14 @@ class TearSheetResponse(BaseModel):
 class WeeklyReportRequest(BaseModel):
     period_start: datetime
     period_end: datetime
-    company_ids: Optional[List[int]] = None
+
+class TearSheet(BaseModel):
+    id: Optional[int] = None
+    company_id: int
+    overview: str
+    funding: Dict[str, Any]
+    hiring_signals: Dict[str, Any]
+    product_updates: List[Dict[str, Any]]
+    key_customers: List[str]
+    citations: List[str]
+    created_at: Optional[datetime] = None

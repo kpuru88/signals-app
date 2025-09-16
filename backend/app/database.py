@@ -2,23 +2,25 @@ from typing import Dict, List, Optional
 from datetime import datetime
 import hashlib
 import json
-from .models import Company, VendorWatch, PageSnapshot, Diff, Signal, Report
+from .models import Company, CompanyWatch, PageSnapshot, Diff, Signal, Report, TearSheet
 
 class InMemoryDatabase:
     def __init__(self):
         self.companies: Dict[int, Company] = {}
-        self.vendor_watches: Dict[int, VendorWatch] = {}
+        self.company_watches: Dict[int, CompanyWatch] = {}
         self.page_snapshots: Dict[int, PageSnapshot] = {}
         self.diffs: Dict[int, Diff] = {}
         self.signals: Dict[int, Signal] = {}
         self.reports: Dict[int, Report] = {}
+        self.tearsheets: Dict[int, TearSheet] = {}
         
         self._company_counter = 1
-        self._vendor_watch_counter = 1
+        self._company_watch_counter = 1
         self._page_snapshot_counter = 1
         self._diff_counter = 1
         self._signal_counter = 1
         self._report_counter = 1
+        self._tearsheet_counter = 1
 
     def create_company(self, company: Company) -> Company:
         company.id = self._company_counter
@@ -33,18 +35,18 @@ class InMemoryDatabase:
     def list_companies(self) -> List[Company]:
         return list(self.companies.values())
 
-    def create_vendor_watch(self, vendor_watch: VendorWatch) -> VendorWatch:
-        vendor_watch.id = self._vendor_watch_counter
-        vendor_watch.created_at = datetime.utcnow()
-        self.vendor_watches[self._vendor_watch_counter] = vendor_watch
-        self._vendor_watch_counter += 1
-        return vendor_watch
+    def create_company_watch(self, company_watch: CompanyWatch) -> CompanyWatch:
+        company_watch.id = self._company_watch_counter
+        company_watch.created_at = datetime.utcnow()
+        self.company_watches[self._company_watch_counter] = company_watch
+        self._company_watch_counter += 1
+        return company_watch
 
-    def get_vendor_watches_by_company(self, company_id: int) -> List[VendorWatch]:
-        return [vw for vw in self.vendor_watches.values() if vw.company_id == company_id]
+    def get_company_watches_by_company(self, company_id: int) -> List[CompanyWatch]:
+        return [cw for cw in self.company_watches.values() if cw.company_id == company_id]
 
-    def list_vendor_watches(self) -> List[VendorWatch]:
-        return list(self.vendor_watches.values())
+    def list_company_watches(self) -> List[CompanyWatch]:
+        return list(self.company_watches.values())
 
     def create_page_snapshot(self, snapshot: PageSnapshot) -> PageSnapshot:
         snapshot.id = self._page_snapshot_counter
@@ -79,5 +81,16 @@ class InMemoryDatabase:
 
     def list_reports(self) -> List[Report]:
         return sorted(self.reports.values(), key=lambda x: x.created_at or datetime.min, reverse=True)
+
+    def create_tearsheet(self, tearsheet: TearSheet) -> TearSheet:
+        tearsheet.id = self._tearsheet_counter
+        tearsheet.created_at = datetime.utcnow()
+        self.tearsheets[self._tearsheet_counter] = tearsheet
+        self._tearsheet_counter += 1
+        return tearsheet
+
+    def get_tearsheet_by_company(self, company_id: int) -> Optional[TearSheet]:
+        tearsheets = [t for t in self.tearsheets.values() if t.company_id == company_id]
+        return max(tearsheets, key=lambda x: x.created_at or datetime.min) if tearsheets else None
 
 db = InMemoryDatabase()
