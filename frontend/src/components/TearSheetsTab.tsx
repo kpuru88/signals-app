@@ -172,9 +172,56 @@ const TearSheetsTab = () => {
                           <Users className="h-4 w-4" />
                           Hiring Signals
                         </h3>
-                        <p className="text-gray-600 text-sm">
-                          {tearSheet.hiring_signals.status || 'Information not available'}
-                        </p>
+                        {tearSheet.hiring_signals && typeof tearSheet.hiring_signals === 'object' && !tearSheet.hiring_signals.status ? (
+                          <div className="space-y-3">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="bg-blue-50 p-3 rounded-lg">
+                                <div className="text-2xl font-bold text-blue-600">
+                                  {tearSheet.hiring_signals.current_year_jobs || 0}
+                                </div>
+                                <div className="text-sm text-gray-600">Jobs in {new Date().getFullYear()}</div>
+                              </div>
+                              <div className="bg-green-50 p-3 rounded-lg">
+                                <div className="text-2xl font-bold text-green-600">
+                                  {tearSheet.hiring_signals.last_year_jobs || 0}
+                                </div>
+                                <div className="text-sm text-gray-600">Jobs in {new Date().getFullYear() - 1}</div>
+                              </div>
+                            </div>
+                            
+                            {tearSheet.hiring_signals.hiring_trends && (
+                              <div className="bg-gray-50 p-3 rounded-lg">
+                                <h4 className="text-sm font-medium text-gray-700 mb-2">Hiring Trends Analysis:</h4>
+                                <div 
+                                  className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed"
+                                  dangerouslySetInnerHTML={{
+                                    __html: tearSheet.hiring_signals.hiring_trends
+                                      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+                                      .replace(/\n/g, '<br/>')
+                                      .replace(/(https?:\/\/[^\s<>"{}|\\^`[\]]+?)(?=[\s<>"{}|\\^`[\]]|$|[.,;:!?\)\]])/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">$1</a>')
+                                  }}
+                                />
+                              </div>
+                            )}
+                            
+                            {tearSheet.hiring_signals.job_titles && tearSheet.hiring_signals.job_titles.length > 0 && (
+                              <div>
+                                <h4 className="text-sm font-medium text-gray-700 mb-2">Common Job Titles:</h4>
+                                <div className="flex flex-wrap gap-1">
+                                  {tearSheet.hiring_signals.job_titles.map((title: string, index: number) => (
+                                    <Badge key={index} variant="secondary" className="text-xs">
+                                      {title}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <p className="text-gray-600 text-sm">
+                            {tearSheet.hiring_signals?.status || 'Information not available'}
+                          </p>
+                        )}
                       </div>
                     </div>
 
