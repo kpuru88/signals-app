@@ -246,6 +246,7 @@ async def get_tearsheet(company_id: int):
         
         print(f"DEBUG: Search domains: {search_domains}")
         
+        # Search for company overview
         search_result = await exa.search(
             query=f"{company.name} company overview funding customers",
             num_results=15
@@ -256,13 +257,94 @@ async def get_tearsheet(company_id: int):
         urls = [result["url"] for result in search_result.get("results", [])]
         print(f"DEBUG: URLs found: {len(urls)}")
         
+        # Search for hiring activity on LinkedIn
+        print(f"DEBUG: Starting LinkedIn job search for {company.name}")
+        current_year = datetime.now().year
+        last_year = current_year - 1
+        
+        hiring_data = {
+            "current_year_jobs": 0,
+            "last_year_jobs": 0,
+            "job_titles": [],
+            "hiring_trends": "No data available"
+        }
+        
+        try:
+            # Search for current year jobs
+            current_year_query = f"{company.name} jobs {current_year} site:linkedin.com/jobs"
+            print(f"DEBUG: Current year query: {current_year_query}")
+            
+            current_year_search = await exa.search(
+                query=current_year_query,
+                include_domains=["linkedin.com"],
+                num_results=20,
+                start_published_date=f"{current_year}-01-01",
+                end_published_date=f"{current_year}-12-31"
+            )
+            
+            print(f"DEBUG: Current year search results: {current_year_search}")
+            current_year_urls = [result["url"] for result in current_year_search.get("results", [])]
+            print(f"DEBUG: Current year job URLs found: {len(current_year_urls)}")
+            
+            # Search for last year jobs
+            last_year_query = f"{company.name} jobs {last_year} site:linkedin.com/jobs"
+            print(f"DEBUG: Last year query: {last_year_query}")
+            
+            last_year_search = await exa.search(
+                query=last_year_query,
+                include_domains=["linkedin.com"],
+                num_results=20,
+                start_published_date=f"{last_year}-01-01",
+                end_published_date=f"{last_year}-12-31"
+            )
+            
+            print(f"DEBUG: Last year search results: {last_year_search}")
+            last_year_urls = [result["url"] for result in last_year_search.get("results", [])]
+            print(f"DEBUG: Last year job URLs found: {len(last_year_urls)}")
+            
+            # Get job content for analysis
+            all_job_urls = current_year_urls + last_year_urls
+            if all_job_urls:
+                print(f"DEBUG: Getting content for {len(all_job_urls)} job URLs")
+                
+                job_contents = await exa.get_contents(all_job_urls[:10])  # Limit to 10 for analysis
+                print(f"DEBUG: Job contents retrieved: {len(job_contents.get('results', []))}")
+                
+                # Analyze job postings
+                job_analysis_query = f"Analyze these {company.name} job postings. Count jobs by year, extract job titles, and identify hiring trends. Focus on engineering, sales, marketing, and leadership roles."
+                
+                job_analysis = await exa.answer(
+                    query=job_analysis_query,
+                    urls=all_job_urls[:10],
+                    text=True
+                )
+                
+                print(f"DEBUG: Job analysis result: {job_analysis}")
+                
+                hiring_data = {
+                    "current_year_jobs": len(current_year_urls),
+                    "last_year_jobs": len(last_year_urls),
+                    "job_titles": [],  # Could be extracted from analysis
+                    "hiring_trends": job_analysis.get("answer", "No hiring data available"),
+                    "analysis_details": job_analysis
+                }
+                
+                print(f"DEBUG: Hiring data compiled: {hiring_data}")
+            else:
+                print("DEBUG: No job URLs found for analysis")
+                
+        except Exception as e:
+            print(f"DEBUG: Error in hiring analysis: {str(e)}")
+            import traceback
+            print(f"DEBUG: Hiring analysis traceback: {traceback.format_exc()}")
+        
         if not urls:
             print("DEBUG: No URLs found, returning basic response")
             return TearSheetResponse(
                 company=company,
                 overview="No information available - no search results found",
                 funding={"status": "Information not available"},
-                hiring_signals={"status": "Information not available"},
+                hiring_signals=hiring_data,
                 product_updates=[],
                 key_customers=[],
                 citations=[]
@@ -280,7 +362,7 @@ async def get_tearsheet(company_id: int):
             company=company,
             overview=answer_result.get("answer", "No overview available"),
             funding={"status": "Information not available"},
-            hiring_signals={"status": "Information not available"},
+            hiring_signals=hiring_data,
             product_updates=[],
             key_customers=[],
             citations=urls
