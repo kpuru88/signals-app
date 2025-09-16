@@ -257,7 +257,7 @@ async def get_tearsheet(company_id: int):
         urls = [result["url"] for result in search_result.get("results", [])]
         print(f"DEBUG: URLs found: {len(urls)}")
         
-        # Search for hiring activity on LinkedIn
+        # Search for hiring activity on LinkedIn - specific to company jobs page
         print(f"DEBUG: Starting LinkedIn job search for {company.name}")
         current_year = datetime.now().year
         last_year = current_year - 1
@@ -265,73 +265,148 @@ async def get_tearsheet(company_id: int):
         hiring_data = {
             "current_year_jobs": 0,
             "last_year_jobs": 0,
-            "job_titles": [],
+            "departments": {
+                "Product": [],
+                "Engineering": [],
+                "Finance": [],
+                "Strategy": [],
+                "Operations": []
+            },
             "hiring_trends": "No data available"
         }
         
         try:
-            # Search for current year jobs
-            current_year_query = f"{company.name} jobs {current_year} site:linkedin.com/jobs"
-            print(f"DEBUG: Current year query: {current_year_query}")
+            # Search for specific job types on LinkedIn using multiple targeted searches
+            departments = {
+                "Product": [],
+                "Engineering": [],
+                "Finance": [],
+                "Strategy": [],
+                "Operations": []
+            }
             
-            current_year_search = await exa.search(
-                query=current_year_query,
-                include_domains=["linkedin.com"],
-                num_results=20,
-                start_published_date=f"{current_year}-01-01",
-                end_published_date=f"{current_year}-12-31"
-            )
+            # Define job search queries for each department
+            job_queries = {
+                "Product": [
+                    f"{company.name} product manager jobs site:linkedin.com",
+                    f"{company.name} product designer jobs site:linkedin.com",
+                    f"{company.name} product marketing jobs site:linkedin.com",
+                    f"{company.name} UX designer jobs site:linkedin.com"
+                ],
+                "Engineering": [
+                    f"{company.name} software engineer jobs site:linkedin.com",
+                    f"{company.name} backend engineer jobs site:linkedin.com",
+                    f"{company.name} frontend engineer jobs site:linkedin.com",
+                    f"{company.name} data engineer jobs site:linkedin.com",
+                    f"{company.name} devops engineer jobs site:linkedin.com"
+                ],
+                "Finance": [
+                    f"{company.name} financial analyst jobs site:linkedin.com",
+                    f"{company.name} finance manager jobs site:linkedin.com",
+                    f"{company.name} accounting jobs site:linkedin.com",
+                    f"{company.name} controller jobs site:linkedin.com"
+                ],
+                "Strategy": [
+                    f"{company.name} strategy manager jobs site:linkedin.com",
+                    f"{company.name} business development jobs site:linkedin.com",
+                    f"{company.name} corporate development jobs site:linkedin.com",
+                    f"{company.name} business analyst jobs site:linkedin.com"
+                ],
+                "Operations": [
+                    f"{company.name} operations manager jobs site:linkedin.com",
+                    f"{company.name} program manager jobs site:linkedin.com",
+                    f"{company.name} project manager jobs site:linkedin.com",
+                    f"{company.name} operations analyst jobs site:linkedin.com"
+                ]
+            }
             
-            print(f"DEBUG: Current year search results: {current_year_search}")
-            current_year_urls = [result["url"] for result in current_year_search.get("results", [])]
-            print(f"DEBUG: Current year job URLs found: {len(current_year_urls)}")
+            total_jobs_found = 0
             
-            # Search for last year jobs
-            last_year_query = f"{company.name} jobs {last_year} site:linkedin.com/jobs"
-            print(f"DEBUG: Last year query: {last_year_query}")
-            
-            last_year_search = await exa.search(
-                query=last_year_query,
-                include_domains=["linkedin.com"],
-                num_results=20,
-                start_published_date=f"{last_year}-01-01",
-                end_published_date=f"{last_year}-12-31"
-            )
-            
-            print(f"DEBUG: Last year search results: {last_year_search}")
-            last_year_urls = [result["url"] for result in last_year_search.get("results", [])]
-            print(f"DEBUG: Last year job URLs found: {len(last_year_urls)}")
-            
-            # Get job content for analysis
-            all_job_urls = current_year_urls + last_year_urls
-            if all_job_urls:
-                print(f"DEBUG: Getting content for {len(all_job_urls)} job URLs")
+            # Search for each department's job types
+            for dept, queries in job_queries.items():
+                print(f"DEBUG: Searching for {dept} jobs...")
+                dept_jobs = []
                 
-                job_contents = await exa.get_contents(all_job_urls[:10])  # Limit to 10 for analysis
-                print(f"DEBUG: Job contents retrieved: {len(job_contents.get('results', []))}")
+                for query in queries:
+                    print(f"DEBUG: Query: {query}")
+                    try:
+                        search_result = await exa.search(
+                            query=query,
+                            include_domains=["linkedin.com"],
+                            num_results=10,
+                            start_published_date=f"{current_year}-01-01",
+                            end_published_date=f"{current_year}-12-31"
+                        )
+                        
+                        if search_result and isinstance(search_result, dict):
+                            results = search_result.get("results", [])
+                            print(f"DEBUG: Found {len(results)} results for {query}")
+                            
+                            # Extract job titles from search results
+                            for result in results:
+                                title = result.get("title", "")
+                                if title and company.name.lower() in title.lower():
+                                    # Clean up the title
+                                    clean_title = title.replace(f"{company.name} - ", "").replace(f"{company.name} ", "")
+                                    if clean_title and clean_title not in dept_jobs:
+                                        dept_jobs.append(clean_title)
+                                        total_jobs_found += 1
+                        
+                    except Exception as e:
+                        print(f"DEBUG: Error searching for {dept} jobs: {str(e)}")
+                        continue
                 
-                # Analyze job postings
-                job_analysis_query = f"Analyze these {company.name} job postings. Count jobs by year, extract job titles, and identify hiring trends. Focus on engineering, sales, marketing, and leadership roles."
-                
-                job_analysis = await exa.answer(
-                    query=job_analysis_query,
-                    urls=all_job_urls[:10],
-                    text=True
+                departments[dept] = dept_jobs
+                print(f"DEBUG: {dept} jobs found: {dept_jobs}")
+            
+            # Also search for last year's jobs for comparison
+            last_year_jobs = 0
+            try:
+                last_year_query = f"{company.name} jobs {last_year} site:linkedin.com"
+                last_year_search = await exa.search(
+                    query=last_year_query,
+                    include_domains=["linkedin.com"],
+                    num_results=20,
+                    start_published_date=f"{last_year}-01-01",
+                    end_published_date=f"{last_year}-12-31"
                 )
                 
-                print(f"DEBUG: Job analysis result: {job_analysis}")
-                
-                hiring_data = {
-                    "current_year_jobs": len(current_year_urls),
-                    "last_year_jobs": len(last_year_urls),
-                    "job_titles": [],  # Could be extracted from analysis
-                    "hiring_trends": job_analysis.get("answer", "No hiring data available"),
-                    "analysis_details": job_analysis
-                }
-                
-                print(f"DEBUG: Hiring data compiled: {hiring_data}")
-            else:
-                print("DEBUG: No job URLs found for analysis")
+                if last_year_search and isinstance(last_year_search, dict):
+                    last_year_jobs = len(last_year_search.get("results", []))
+                    print(f"DEBUG: Last year jobs found: {last_year_jobs}")
+                    
+            except Exception as e:
+                print(f"DEBUG: Error searching last year jobs: {str(e)}")
+            
+            # Generate hiring trends analysis
+            hiring_trends = f"""
+            **Hiring Analysis for {company.name}:**
+            
+            **Current Year Job Count:** {total_jobs_found}
+            **Last Year Job Count:** {last_year_jobs}
+            
+            **Department Breakdown:**
+            - Product: {len(departments['Product'])} roles
+            - Engineering: {len(departments['Engineering'])} roles  
+            - Finance: {len(departments['Finance'])} roles
+            - Strategy: {len(departments['Strategy'])} roles
+            - Operations: {len(departments['Operations'])} roles
+            
+            **Key Insights:**
+            - Most active department: {max(departments.items(), key=lambda x: len(x[1]))[0]} with {max(len(jobs) for jobs in departments.values())} roles
+            - Total active job postings: {total_jobs_found}
+            - Year-over-year change: {'+' if total_jobs_found > last_year_jobs else ''}{total_jobs_found - last_year_jobs} jobs
+            """
+            
+            hiring_data = {
+                "current_year_jobs": total_jobs_found,
+                "last_year_jobs": last_year_jobs,
+                "departments": departments,
+                "hiring_trends": hiring_trends,
+                "analysis_details": {"method": "direct_linkedin_search"}
+            }
+            
+            print(f"DEBUG: Final hiring data: {hiring_data}")
                 
         except Exception as e:
             print(f"DEBUG: Error in hiring analysis: {str(e)}")

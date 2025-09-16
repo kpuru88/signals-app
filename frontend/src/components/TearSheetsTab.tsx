@@ -173,7 +173,7 @@ const TearSheetsTab = () => {
                           Hiring Signals
                         </h3>
                         {tearSheet.hiring_signals && typeof tearSheet.hiring_signals === 'object' && !tearSheet.hiring_signals.status ? (
-                          <div className="space-y-3">
+                          <div className="space-y-4">
                             <div className="grid grid-cols-2 gap-4">
                               <div className="bg-blue-50 p-3 rounded-lg">
                                 <div className="text-2xl font-bold text-blue-600">
@@ -189,6 +189,41 @@ const TearSheetsTab = () => {
                               </div>
                             </div>
                             
+                            {/* Department-wise job breakdown */}
+                            {tearSheet.hiring_signals.departments && (
+                              <div className="space-y-3">
+                                <h4 className="text-sm font-medium text-gray-700 mb-3">Jobs by Department:</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                  {Object.entries(tearSheet.hiring_signals.departments).map(([dept, jobs]) => (
+                                    <div key={dept} className="border rounded-lg p-3">
+                                      <div className="flex items-center justify-between mb-2">
+                                        <h5 className="font-medium text-gray-900">{dept}</h5>
+                                        <Badge variant="outline" className="text-xs">
+                                          {Array.isArray(jobs) ? jobs.length : 0} roles
+                                        </Badge>
+                                      </div>
+                                      {Array.isArray(jobs) && jobs.length > 0 ? (
+                                        <div className="space-y-1">
+                                          {jobs.slice(0, 3).map((job: string, index: number) => (
+                                            <div key={index} className="text-xs text-gray-600 truncate">
+                                              • {job}
+                                            </div>
+                                          ))}
+                                          {jobs.length > 3 && (
+                                            <div className="text-xs text-gray-500">
+                                              +{jobs.length - 3} more...
+                                            </div>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <div className="text-xs text-gray-500">No roles found</div>
+                                      )}
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
                             {tearSheet.hiring_signals.hiring_trends && (
                               <div className="bg-gray-50 p-3 rounded-lg">
                                 <h4 className="text-sm font-medium text-gray-700 mb-2">Hiring Trends Analysis:</h4>
@@ -201,19 +236,6 @@ const TearSheetsTab = () => {
                                       .replace(/(https?:\/\/[^\s<>"{}|\\^`[\]]+?)(?=[\s<>"{}|\\^`[\]]|$|[.,;:!?\)\]])/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">$1</a>')
                                   }}
                                 />
-                              </div>
-                            )}
-                            
-                            {tearSheet.hiring_signals.job_titles && tearSheet.hiring_signals.job_titles.length > 0 && (
-                              <div>
-                                <h4 className="text-sm font-medium text-gray-700 mb-2">Common Job Titles:</h4>
-                                <div className="flex flex-wrap gap-1">
-                                  {tearSheet.hiring_signals.job_titles.map((title: string, index: number) => (
-                                    <Badge key={index} variant="secondary" className="text-xs">
-                                      {title}
-                                    </Badge>
-                                  ))}
-                                </div>
                               </div>
                             )}
                           </div>
