@@ -1,18 +1,8 @@
 import { useState, useEffect } from 'react';
 import { 
   AlertTriangle, 
-  DollarSign, 
-  Shield, 
-  Package, 
   Clock, 
   ExternalLink, 
-  Bell, 
-  BellOff, 
-  CheckSquare, 
-  Filter,
-  RefreshCw,
-  Search,
-  TrendingUp,
   Activity
 } from 'lucide-react';
 
@@ -336,18 +326,6 @@ const SignalsAlertsTab = () => {
   };
 
 
-  const _getSignalIcon = (type: string) => {
-    switch (type) {
-      case 'pricing_change':
-        return <DollarSign className="h-4 w-4" />;
-      case 'security_update':
-        return <Shield className="h-4 w-4" />;
-      case 'product_update':
-        return <Package className="h-4 w-4" />;
-      default:
-        return <Activity className="h-4 w-4" />;
-    }
-  };
 
   const getSeverityColor = (severity: string) => {
     switch (severity) {
@@ -389,23 +367,6 @@ const SignalsAlertsTab = () => {
     }
   };
 
-  const _getWhyItMatters = (signalType: string, impactedAreas: string[]) => {
-    const templates = {
-      'pricing_change': 'Pricing changes directly impact your cost structure and competitive positioning. Monitor for budget adjustments and competitive analysis opportunities.',
-      'product_update': 'Product updates may affect your integration roadmap, feature parity, or competitive differentiation. Track for strategic planning and technical alignment.',
-      'security_update': 'Security updates are critical for compliance and risk management. Immediate attention required for vulnerability assessments and security posture updates.',
-      'funding': 'Funding announcements indicate market validation and competitive landscape shifts. Monitor for strategic planning and market intelligence.',
-      'hiring': 'Hiring patterns reveal company growth trajectory and strategic priorities. Track for talent acquisition insights and competitive intelligence.'
-    };
-    
-    const baseTemplate = templates[signalType as keyof typeof templates] || 'This change may impact your strategic planning and competitive positioning.';
-    
-    if (impactedAreas && impactedAreas.length > 0) {
-      return `${baseTemplate} Key areas affected: ${impactedAreas.join(', ')}.`;
-    }
-    
-    return baseTemplate;
-  };
 
   // Signals are already filtered in fetchSignals based on selected filters
   const filteredSignals = signals;
