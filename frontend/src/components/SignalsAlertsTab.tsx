@@ -6,7 +6,6 @@ import {
   Activity,
   Filter,
   RefreshCw,
-  Search,
   BellOff,
   CheckSquare,
   TrendingUp,
@@ -269,39 +268,6 @@ const SignalsAlertsTab = () => {
     }
   };
 
-  const detectSignals = async (companyId: number) => {
-    setLoading(true);
-    try {
-      const response = await fetch(`${API_BASE}/signals/detect`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          company_id: companyId,
-          signal_types: ['pricing_change', 'product_update', 'security_update'],
-          include_paths: ['/pricing', '/release-notes', '/changelog', '/security'],
-          use_livecrawl: true
-        })
-      });
-      
-      if (response.ok) {
-        const newSignals = await response.json();
-        const updatedSignals = [...newSignals, ...signals];
-        
-        // Update signals state
-        setSignals(updatedSignals);
-        
-        // Update cache with new signals
-        setCachedSignals(updatedSignals);
-        setLastFetchTime(Date.now());
-      }
-    } catch (error) {
-      console.error('Error detecting signals:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const muteSignal = async (signalId: number) => {
     try {
@@ -473,23 +439,6 @@ const SignalsAlertsTab = () => {
         </div>
       )}
 
-      {/* Company Detection Buttons */}
-      <div className="bg-white border border-gray-200 rounded-lg p-4">
-        <h3 className="text-lg font-semibold text-gray-900 mb-3">Detect New Signals</h3>
-        <div className="flex flex-wrap gap-2">
-          {companies.map(company => (
-            <button
-              key={company.id}
-              onClick={() => detectSignals(company.id)}
-              disabled={loading}
-              className="flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 disabled:opacity-50"
-            >
-              <Search className="h-4 w-4" />
-              {company.name}
-            </button>
-          ))}
-        </div>
-      </div>
 
       {/* Signals List */}
       <div className="space-y-4">
