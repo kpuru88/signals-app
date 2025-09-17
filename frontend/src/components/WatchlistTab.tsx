@@ -37,8 +37,6 @@ const WatchlistTab = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingCompany, setEditingCompany] = useState<number | null>(null)
   const [editingName, setEditingName] = useState('')
-  const [isResultsDialogOpen, setIsResultsDialogOpen] = useState(false)
-  const [watchlistResults, setWatchlistResults] = useState<any>(null)
   const [companyResults, setCompanyResults] = useState<{[key: number]: any}>({})
   const [companyDialogs, setCompanyDialogs] = useState<{[key: number]: boolean}>({})
   const [sourcesConfig, setSourcesConfig] = useState<{allowed_domains: string[]} | null>(null)
@@ -171,8 +169,6 @@ const WatchlistTab = () => {
     return '/pricing,/release-notes,/security'
   }
 
-  // Debug log for dialog state
-  console.log('Dialog state:', isResultsDialogOpen, 'Watchlist results:', watchlistResults)
   const [newVendor, setNewVendor] = useState({
     name: '',
     domains: '',
@@ -239,43 +235,6 @@ const WatchlistTab = () => {
     }
   }
 
-  const runWatchlist = async () => {
-    setLoading(true)
-    try {
-      const response = await fetch(`${API_BASE}/run/watchlist`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({})
-      })
-
-      if (response.ok) {
-        const result = await response.json()
-        console.log('Watchlist run result:', result)
-        
-        // Store results for display
-        setWatchlistResults(result)
-        
-        // Show success message
-        const totalUrls = result.results?.reduce((sum: number, r: any) => sum + r.urls_found, 0) || 0
-        const companiesChecked = result.results?.length || 0
-        const signalsCreated = result.results?.reduce((sum: number, r: any) => sum + (r.signals_created || 0), 0) || 0
-        
-        alert(`Watchlist run completed successfully!\n\nCompanies checked: ${companiesChecked}\nURLs found: ${totalUrls}\nSignals created: ${signalsCreated}\n\nClick "View Results" to see detailed analysis.`)
-        
-        await fetchVendors()
-      } else {
-        const errorData = await response.json()
-        alert(`Error running watchlist: ${errorData.detail || 'Unknown error'}`)
-      }
-    } catch (error) {
-      console.error('Error running watchlist:', error)
-      alert(`Error running watchlist: ${error instanceof Error ? error.message : 'Network error'}`)
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const runCompanyWatchlist = async (companyId: number) => {
     console.log(`DEBUG: Starting runCompanyWatchlist for company ID: ${companyId}`)
@@ -657,8 +616,7 @@ const WatchlistTab = () => {
         </div>
       )}
 
-      {/* Watchlist Results Dialog */}
-      <Dialog open={isResultsDialogOpen} onOpenChange={setIsResultsDialogOpen}>
+      <Dialog open={false} onOpenChange={() => {}}>
         <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Watchlist Analysis Results</DialogTitle>
@@ -669,37 +627,37 @@ const WatchlistTab = () => {
           
           <div className="p-4 bg-yellow-100 border border-yellow-300 rounded mb-4">
             <p className="text-sm text-yellow-800">
-              <strong>Debug:</strong> Dialog is open: {isResultsDialogOpen ? 'YES' : 'NO'}, 
-              Results available: {watchlistResults ? 'YES' : 'NO'}
+              <strong>Debug:</strong> Dialog is open: false, 
+              Results available: false
             </p>
           </div>
           
-          {watchlistResults ? (
+          {false ? (
             <div className="space-y-6">
             {/* Summary Stats */}
             <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
               <div className="text-center">
                 <div className="text-2xl font-bold text-blue-600">
-                  {watchlistResults?.results?.length || 0}
+                  0
                 </div>
                 <div className="text-sm text-gray-600">Companies Checked</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-green-600">
-                  {watchlistResults?.results?.reduce((sum: number, r: any) => sum + (r.urls_found || 0), 0) || 0}
+                  0
                 </div>
                 <div className="text-sm text-gray-600">URLs Found</div>
               </div>
               <div className="text-center">
                 <div className="text-2xl font-bold text-purple-600">
-                  {watchlistResults?.results?.reduce((sum: number, r: any) => sum + (r.signals_created || 0), 0) || 0}
+                  0
                 </div>
                 <div className="text-sm text-gray-600">Signals Created</div>
               </div>
             </div>
 
             {/* Company Results */}
-            {watchlistResults?.results?.map((result: any, index: number) => (
+              {[].map((result: any, index: number) => (
               <div key={index} className="border rounded-lg p-4">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-lg font-semibold text-gray-900">{result.company}</h3>
@@ -779,11 +737,11 @@ const WatchlistTab = () => {
             ))}
 
             {/* Debug Information (if available) */}
-            {watchlistResults?.debug && (
+            {false && (
               <div className="border-t pt-4">
                 <h4 className="text-sm font-medium text-gray-700 mb-2">Debug Information</h4>
                 <pre className="text-xs bg-gray-100 p-3 rounded overflow-x-auto">
-                  {JSON.stringify(watchlistResults.debug, null, 2)}
+                  {}
                 </pre>
               </div>
             )}
