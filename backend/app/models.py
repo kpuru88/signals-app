@@ -92,3 +92,36 @@ class WeeklyReportRequest(BaseModel):
     period_start: datetime
     period_end: datetime
     company_ids: Optional[List[int]] = None
+
+class SignalDetectionRequest(BaseModel):
+    company_id: int
+    signal_types: List[SignalType] = [SignalType.PRICING_CHANGE, SignalType.PRODUCT_UPDATE, SignalType.SECURITY_UPDATE]
+    include_paths: List[str] = ["/pricing", "/release-notes", "/changelog", "/security"]
+    start_date: Optional[datetime] = None
+    end_date: Optional[datetime] = None
+    use_livecrawl: bool = False
+
+class EvidenceItem(BaseModel):
+    before: Optional[str] = None
+    after: Optional[str] = None
+    snippet: str
+    confidence: float
+
+class SignalResponse(BaseModel):
+    id: Optional[int] = None
+    type: SignalType
+    severity: SignalSeverity
+    vendor: str
+    url: str
+    detected_at: datetime
+    evidence: List[EvidenceItem]
+    rationale: str
+    impacted_areas: List[str]
+    tags: List[str]
+    confidence: float
+    source_authority: str
+    diff_magnitude: float
+    keyword_overlap: float
+    score: float
+    last_crawled: Optional[datetime] = None
+    citations: List[str] = []

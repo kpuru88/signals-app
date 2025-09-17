@@ -87,4 +87,7 @@ class InMemoryDatabase:
     def list_reports(self) -> List[Report]:
         return sorted(self.reports.values(), key=lambda x: x.created_at or datetime.min, reverse=True)
 
+    def get_signals(self) -> List[Signal]:
+        return sorted(self.signals.values(), key=lambda x: x.created_at or datetime.min, reverse=True)
+
 db = InMemoryDatabase()
