@@ -41,13 +41,40 @@ const WatchlistTab = () => {
   const [watchlistResults, setWatchlistResults] = useState<any>(null)
   const [companyResults, setCompanyResults] = useState<{[key: number]: any}>({})
   const [companyDialogs, setCompanyDialogs] = useState<{[key: number]: boolean}>({})
+  const [sourcesConfig, setSourcesConfig] = useState<{allowed_domains: string[]} | null>(null)
+
+  // Load sources configuration on component mount
+  useEffect(() => {
+    loadSourcesConfiguration()
+  }, [])
+
+  const loadSourcesConfiguration = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/sources/configuration`)
+      if (response.ok) {
+        const config = await response.json()
+        setSourcesConfig(config)
+      }
+    } catch (error) {
+      console.error('Error loading sources configuration:', error)
+    }
+  }
+
+  // Function to get paths from sources
+  const getPathsFromSources = () => {
+    if (sourcesConfig && sourcesConfig.allowed_domains) {
+      return sourcesConfig.allowed_domains.join(', ')
+    }
+    // Fallback to default paths
+    return '/pricing,/release-notes,/security'
+  }
 
   // Debug log for dialog state
   console.log('Dialog state:', isResultsDialogOpen, 'Watchlist results:', watchlistResults)
   const [newVendor, setNewVendor] = useState({
     name: '',
     domains: '',
-    include_paths: '/pricing,/release-notes,/security',
+    include_paths: '',
     linkedin_url: '',
     github_org: '',
     tags: ''
@@ -97,7 +124,7 @@ const WatchlistTab = () => {
         setNewVendor({
           name: '',
           domains: '',
-          include_paths: '/pricing,/release-notes,/security',
+          include_paths: getPathsFromSources(),
           linkedin_url: '',
           github_org: '',
           tags: ''
@@ -320,13 +347,29 @@ const WatchlistTab = () => {
                   />
                 </div>
                 <div className="grid gap-2">
-                  <Label htmlFor="paths">Paths to Monitor (comma-separated)</Label>
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="paths">Paths to Monitor (comma-separated)</Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setNewVendor({...newVendor, include_paths: getPathsFromSources()})}
+                      className="text-xs"
+                    >
+                      Use Sources
+                    </Button>
+                  </div>
                   <Input
                     id="paths"
                     value={newVendor.include_paths}
                     onChange={(e) => setNewVendor({...newVendor, include_paths: e.target.value})}
                     placeholder="/pricing,/release-notes,/security"
                   />
+                  {sourcesConfig && (
+                    <p className="text-xs text-gray-500">
+                      Available paths from Sources: {sourcesConfig.allowed_domains.join(', ')}
+                    </p>
+                  )}
                 </div>
                 <div className="grid gap-2">
                   <Label htmlFor="linkedin">LinkedIn URL (optional)</Label>

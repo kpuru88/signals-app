@@ -128,9 +128,28 @@ exa_client = None
 
 def get_exa_client() -> ExaClient:
     global exa_client
-    if exa_client is None:
+    
+    # Import here to avoid circular imports
+    from .database import db
+    
+    # Try to get API key from settings first
+    api_key = None
+    try:
+        settings_config = db.get_latest_settings_configuration()
+        if settings_config and settings_config.api_keys and settings_config.api_keys.get("exa_api_key"):
+            api_key = settings_config.api_keys["exa_api_key"]
+            print(f"DEBUG: Using API key from settings")
+    except Exception as e:
+        print(f"DEBUG: Error getting API key from settings: {e}")
+    
+    # Fall back to environment variable if no settings API key
+    if not api_key:
         api_key = os.getenv("EXA_API_KEY")
-        if not api_key:
-            raise ValueError("EXA_API_KEY environment variable is required")
-        exa_client = ExaClient(api_key)
+        print(f"DEBUG: Using API key from environment variable")
+    
+    if not api_key:
+        raise ValueError("EXA_API_KEY not found in settings or environment variable")
+    
+    # Create new client instance (don't cache since settings might change)
+    exa_client = ExaClient(api_key)
     return exa_client

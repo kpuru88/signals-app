@@ -1,12 +1,12 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+// import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
-import { Database, Globe, Plus, X } from 'lucide-react'
+import { Globe, Plus, X } from 'lucide-react'
+
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
 const SourcesTab = () => {
   const [allowedDomains, setAllowedDomains] = useState([
@@ -17,18 +17,63 @@ const SourcesTab = () => {
     '*.com/blog'
   ])
   const [newDomain, setNewDomain] = useState('')
-  const [categories, setCategories] = useState({
-    company: true,
-    news: true,
-    pdf: false,
-    linkedin: true,
-    github: true,
-    financial_report: false
+  const [qualityControls, setQualityControls] = useState({
+    default_results_limit: 25,
+    content_preference: 'highlights',
+    livecrawl_mode: 'preferred'
   })
-  const [textFilters, setTextFilters] = useState({
-    include: '',
-    exclude: 'spam, advertisement, unrelated'
-  })
+  // const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
+
+  // Load configuration on component mount
+  useEffect(() => {
+    loadConfiguration()
+  }, [])
+
+  const loadConfiguration = async () => {
+    // setLoading(true)
+    try {
+      const response = await fetch(`${API_BASE}/sources/configuration`)
+      if (response.ok) {
+        const config = await response.json()
+        setAllowedDomains(config.allowed_domains || [])
+        setQualityControls(config.quality_controls || {})
+      }
+    } catch (error) {
+      console.error('Error loading configuration:', error)
+    } finally {
+      // setLoading(false)
+    }
+  }
+
+  const saveConfiguration = async () => {
+    setSaving(true)
+    try {
+      const config = {
+        allowed_domains: allowedDomains,
+        quality_controls: qualityControls
+      }
+
+      const response = await fetch(`${API_BASE}/sources/configuration`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(config)
+      })
+
+      if (response.ok) {
+        console.log('Configuration saved successfully')
+        // Could add a toast notification here
+      } else {
+        console.error('Failed to save configuration')
+      }
+    } catch (error) {
+      console.error('Error saving configuration:', error)
+    } finally {
+      setSaving(false)
+    }
+  }
 
   const addDomain = () => {
     if (newDomain && !allowedDomains.includes(newDomain)) {
@@ -41,12 +86,6 @@ const SourcesTab = () => {
     setAllowedDomains(allowedDomains.filter(d => d !== domain))
   }
 
-  const toggleCategory = (category: string) => {
-    setCategories(prev => ({
-      ...prev,
-      [category]: !prev[category]
-    }))
-  }
 
   return (
     <div className="space-y-6">
@@ -55,7 +94,7 @@ const SourcesTab = () => {
         <p className="text-gray-600 mt-2">Control precision and cost by managing allowed domains and content types</p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -100,83 +139,6 @@ const SourcesTab = () => {
 
         <Card>
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="h-5 w-5" />
-              Content Categories
-            </CardTitle>
-            <CardDescription>
-              Select which types of content to include in tear-sheet generation
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {Object.entries(categories).map(([category, enabled]) => (
-                <div key={category} className="flex items-center justify-between">
-                  <div>
-                    <Label htmlFor={category} className="text-sm font-medium">
-                      {category.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())}
-                    </Label>
-                    <p className="text-xs text-gray-500">
-                      {category === 'company' && 'Official company pages and profiles'}
-                      {category === 'news' && 'News articles and press releases'}
-                      {category === 'pdf' && 'PDF documents and reports'}
-                      {category === 'linkedin' && 'LinkedIn company profiles'}
-                      {category === 'github' && 'GitHub repositories and profiles'}
-                      {category === 'financial_report' && 'Financial reports and SEC filings'}
-                    </p>
-                  </div>
-                  <Switch
-                    id={category}
-                    checked={enabled}
-                    onCheckedChange={() => toggleCategory(category)}
-                  />
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2">
-          <CardHeader>
-            <CardTitle>Text Filters</CardTitle>
-            <CardDescription>
-              Include or exclude content based on specific phrases or keywords
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="include-text">Include Text (comma-separated)</Label>
-                <Textarea
-                  id="include-text"
-                  placeholder="pricing, plans, features"
-                  value={textFilters.include}
-                  onChange={(e) => setTextFilters(prev => ({...prev, include: e.target.value}))}
-                  className="mt-1"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Only include content that contains these phrases
-                </p>
-              </div>
-              <div>
-                <Label htmlFor="exclude-text">Exclude Text (comma-separated)</Label>
-                <Textarea
-                  id="exclude-text"
-                  placeholder="spam, advertisement, unrelated"
-                  value={textFilters.exclude}
-                  onChange={(e) => setTextFilters(prev => ({...prev, exclude: e.target.value}))}
-                  className="mt-1"
-                />
-                <p className="text-xs text-gray-500 mt-1">
-                  Exclude content that contains these phrases
-                </p>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="lg:col-span-2">
-          <CardHeader>
             <CardTitle>Quality & Cost Controls</CardTitle>
             <CardDescription>
               Manage search quality and API usage costs
@@ -186,12 +148,20 @@ const SourcesTab = () => {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="space-y-2">
                 <Label>Default Results Limit</Label>
-                <Input type="number" defaultValue="25" />
+                <Input 
+                  type="number" 
+                  value={qualityControls.default_results_limit}
+                  onChange={(e) => setQualityControls(prev => ({...prev, default_results_limit: parseInt(e.target.value)}))}
+                />
                 <p className="text-xs text-gray-500">Maximum results per search</p>
               </div>
               <div className="space-y-2">
                 <Label>Content Preference</Label>
-                <select className="w-full p-2 border rounded-md">
+                <select 
+                  className="w-full p-2 border rounded-md"
+                  value={qualityControls.content_preference}
+                  onChange={(e) => setQualityControls(prev => ({...prev, content_preference: e.target.value}))}
+                >
                   <option value="highlights">Highlights (cheaper)</option>
                   <option value="full_text">Full Text (more expensive)</option>
                   <option value="summary">Structured Summary</option>
@@ -200,7 +170,11 @@ const SourcesTab = () => {
               </div>
               <div className="space-y-2">
                 <Label>Livecrawl Mode</Label>
-                <select className="w-full p-2 border rounded-md">
+                <select 
+                  className="w-full p-2 border rounded-md"
+                  value={qualityControls.livecrawl_mode}
+                  onChange={(e) => setQualityControls(prev => ({...prev, livecrawl_mode: e.target.value}))}
+                >
                   <option value="preferred">Preferred (fresh data)</option>
                   <option value="fallback">Fallback (cached OK)</option>
                   <option value="never">Never (cache only)</option>
@@ -213,7 +187,9 @@ const SourcesTab = () => {
       </div>
 
       <div className="flex justify-end">
-        <Button>Save Source Configuration</Button>
+        <Button onClick={saveConfiguration} disabled={saving}>
+          {saving ? 'Saving...' : 'Save Source Configuration'}
+        </Button>
       </div>
     </div>
   )

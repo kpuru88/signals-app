@@ -1,12 +1,14 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Badge } from '@/components/ui/badge'
+// import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
-import { Textarea } from '@/components/ui/textarea'
-import { Settings, Clock, DollarSign, Bell, Key, Zap } from 'lucide-react'
+// import { Textarea } from '@/components/ui/textarea'
+import { Clock, Key } from 'lucide-react'
+
+const API_BASE = 'http://localhost:8000';
 
 const SettingsTab = () => {
   const [settings, setSettings] = useState({
@@ -16,26 +18,18 @@ const SettingsTab = () => {
       day: 'monday',
       time: '09:00'
     },
-    budget: {
-      monthly_limit: 100,
-      alert_threshold: 80
-    },
-    notifications: {
-      slack_enabled: false,
-      email_enabled: true,
-      webhook_url: ''
-    },
     api_keys: {
-      exa_api_key: '',
+      exa_api_key: 'c8b9a631-7ee0-45bf-9a36-e3b6b129ca98',
       slack_webhook: '',
       email_smtp: ''
     },
     retention: {
-      signals_days: 90,
-      reports_days: 365,
-      snapshots_days: 30
-    }
+      tearsheets_days: 365
+    },
+    signals_cache_duration_seconds: 3600
   })
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving] = useState(false)
 
   const updateSetting = (section: string, key: string, value: any) => {
     setSettings(prev => ({
@@ -47,11 +41,58 @@ const SettingsTab = () => {
     }))
   }
 
+  // Load settings from backend
+  const loadSettings = async () => {
+    setLoading(true)
+    try {
+      const response = await fetch(`${API_BASE}/settings/configuration`)
+      if (response.ok) {
+        const settingsData = await response.json()
+        setSettings(settingsData)
+        console.log('DEBUG: Loaded settings:', settingsData)
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Save settings to backend
+  const saveSettings = async () => {
+    setSaving(true)
+    try {
+      const response = await fetch(`${API_BASE}/settings/configuration`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(settings)
+      })
+      if (response.ok) {
+        console.log('Settings saved successfully')
+        // Optionally reload settings to confirm
+        await loadSettings()
+      } else {
+        console.error('Failed to save settings')
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // Load settings on component mount
+  useEffect(() => {
+    loadSettings()
+  }, [])
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-3xl font-bold text-gray-900">Settings</h2>
-        <p className="text-gray-600 mt-2">Configure schedules, budgets, integrations, and data retention</p>
+        <p className="text-gray-600 mt-2">Configure schedules, API keys, and data retention</p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -128,103 +169,6 @@ const SettingsTab = () => {
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
-              <DollarSign className="h-5 w-5" />
-              Budget & Cost Control
-            </CardTitle>
-            <CardDescription>
-              Set spending limits and cost alerts for API usage
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div>
-                <Label>Monthly Budget Limit ($)</Label>
-                <Input
-                  type="number"
-                  value={settings.budget.monthly_limit}
-                  onChange={(e) => updateSetting('budget', 'monthly_limit', parseInt(e.target.value))}
-                />
-                <p className="text-sm text-gray-500 mt-1">Maximum monthly spend on Exa API calls</p>
-              </div>
-
-              <div>
-                <Label>Alert Threshold (%)</Label>
-                <Input
-                  type="number"
-                  value={settings.budget.alert_threshold}
-                  onChange={(e) => updateSetting('budget', 'alert_threshold', parseInt(e.target.value))}
-                />
-                <p className="text-sm text-gray-500 mt-1">Get notified when reaching this % of budget</p>
-              </div>
-
-              <div className="p-3 bg-blue-50 rounded-lg">
-                <div className="flex items-center gap-2 mb-2">
-                  <Zap className="h-4 w-4 text-blue-600" />
-                  <span className="font-medium text-blue-900">Current Usage</span>
-                </div>
-                <div className="text-sm text-blue-800">
-                  <p>This month: $0.00 / ${settings.budget.monthly_limit}</p>
-                  <div className="w-full bg-blue-200 rounded-full h-2 mt-2">
-                    <div className="bg-blue-600 h-2 rounded-full" style={{width: '0%'}}></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5" />
-              Notifications & Integrations
-            </CardTitle>
-            <CardDescription>
-              Configure how and where to receive alerts and reports
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Email Notifications</Label>
-                  <p className="text-sm text-gray-500">Receive alerts via email</p>
-                </div>
-                <Switch
-                  checked={settings.notifications.email_enabled}
-                  onCheckedChange={(checked) => updateSetting('notifications', 'email_enabled', checked)}
-                />
-              </div>
-
-              <div className="flex items-center justify-between">
-                <div>
-                  <Label>Slack Integration</Label>
-                  <p className="text-sm text-gray-500">Send alerts to Slack channel</p>
-                </div>
-                <Switch
-                  checked={settings.notifications.slack_enabled}
-                  onCheckedChange={(checked) => updateSetting('notifications', 'slack_enabled', checked)}
-                />
-              </div>
-
-              {settings.notifications.slack_enabled && (
-                <div>
-                  <Label>Slack Webhook URL</Label>
-                  <Input
-                    type="url"
-                    placeholder="https://hooks.slack.com/services/..."
-                    value={settings.notifications.webhook_url}
-                    onChange={(e) => updateSetting('notifications', 'webhook_url', e.target.value)}
-                  />
-                </div>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
               <Key className="h-5 w-5" />
               API Keys & Authentication
             </CardTitle>
@@ -268,33 +212,30 @@ const SettingsTab = () => {
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="space-y-4">
               <div>
-                <Label>Signals & Alerts</Label>
+                <Label>Tear-Sheets</Label>
                 <Input
                   type="number"
-                  value={settings.retention.signals_days}
-                  onChange={(e) => updateSetting('retention', 'signals_days', parseInt(e.target.value))}
+                  value={settings.retention.tearsheets_days}
+                  onChange={(e) => updateSetting('retention', 'tearsheets_days', parseInt(e.target.value))}
                 />
-                <p className="text-sm text-gray-500 mt-1">Days to keep signals</p>
+                <p className="text-sm text-gray-500 mt-1">Days to keep tear-sheets</p>
               </div>
-              <div>
-                <Label>Reports</Label>
-                <Input
-                  type="number"
-                  value={settings.retention.reports_days}
-                  onChange={(e) => updateSetting('retention', 'reports_days', parseInt(e.target.value))}
-                />
-                <p className="text-sm text-gray-500 mt-1">Days to keep reports</p>
-              </div>
-              <div>
-                <Label>Page Snapshots</Label>
-                <Input
-                  type="number"
-                  value={settings.retention.snapshots_days}
-                  onChange={(e) => updateSetting('retention', 'snapshots_days', parseInt(e.target.value))}
-                />
-                <p className="text-sm text-gray-500 mt-1">Days to keep snapshots</p>
+              
+              <div className="border-t pt-4">
+                <div>
+                  <Label>Signals Cache Duration</Label>
+                  <Input
+                    type="number"
+                    value={settings.signals_cache_duration_seconds}
+                    onChange={(e) => setSettings(prev => ({
+                      ...prev,
+                      signals_cache_duration_seconds: parseInt(e.target.value)
+                    }))}
+                  />
+                  <p className="text-sm text-gray-500 mt-1">Seconds to cache signals (default: 3600 = 1 hour)</p>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -302,7 +243,9 @@ const SettingsTab = () => {
       </div>
 
       <div className="flex justify-end">
-        <Button>Save Settings</Button>
+        <Button onClick={saveSettings} disabled={saving}>
+          {saving ? 'Saving...' : 'Save Settings'}
+        </Button>
       </div>
     </div>
   )

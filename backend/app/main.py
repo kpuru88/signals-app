@@ -8,7 +8,7 @@ import hashlib
 import json
 
 from .models import (
-    Company, VendorWatch, Signal, Report,
+    Company, VendorWatch, Signal, Report, TearSheet, SourcesConfiguration, SettingsConfiguration,
     AddVendorRequest, RunWatchlistRequest, TearSheetResponse, WeeklyReportRequest,
     SignalType, SignalSeverity, SignalResponse, SignalDetectionRequest
 )
@@ -226,7 +226,7 @@ async def run_watchlist(request: RunWatchlistRequest = None):
 
 @app.get("/tearsheet/{company_id}", response_model=TearSheetResponse)
 async def get_tearsheet(company_id: int):
-    """Generate a company tear-sheet"""
+    """Generate a company tear-sheet with 7-day caching"""
     print(f"DEBUG: Starting tear-sheet generation for company_id: {company_id}")
     
     company = db.get_company(company_id)
@@ -235,6 +235,43 @@ async def get_tearsheet(company_id: int):
         raise HTTPException(status_code=404, detail="Company not found")
     
     print(f"DEBUG: Found company: {company.name}")
+    
+    # Check for existing tearsheets for this company
+    existing_tearsheets = db.get_tearsheets_by_company(company_id)
+    
+    if existing_tearsheets:
+        # Get the most recent tearsheet
+        latest_tearsheet = max(existing_tearsheets, key=lambda t: t.generated_at)
+        days_old = (datetime.utcnow() - latest_tearsheet.generated_at).days
+        
+        # Get cache duration from settings, default to 7 days
+        cache_duration_days = 7
+        try:
+            settings_config = db.get_latest_settings_configuration()
+            if settings_config and settings_config.retention:
+                cache_duration_days = settings_config.retention.get("tearsheets_days", 7)
+        except Exception as e:
+            print(f"DEBUG: Error getting settings config, using default 7 days: {e}")
+        
+        print(f"DEBUG: Found existing tearsheet from {latest_tearsheet.generated_at} ({days_old} days old)")
+        print(f"DEBUG: Cache duration from settings: {cache_duration_days} days")
+        
+        # If tearsheet is less than cache_duration_days old, return cached version
+        if days_old < cache_duration_days:
+            print(f"DEBUG: Returning cached tearsheet (less than {cache_duration_days} days old)")
+            return TearSheetResponse(
+                company=company,
+                overview=latest_tearsheet.overview,
+                funding=latest_tearsheet.funding,
+                hiring_signals=latest_tearsheet.hiring_signals,
+                product_updates=latest_tearsheet.product_updates,
+                key_customers=latest_tearsheet.key_customers,
+                citations=latest_tearsheet.citations
+            )
+        else:
+            print(f"DEBUG: Tearsheet is {days_old} days old (cache duration: {cache_duration_days} days), refreshing from Exa API")
+    else:
+        print(f"DEBUG: No existing tearsheets found, generating new one")
     
     try:
         exa = get_exa_client()
@@ -454,7 +491,8 @@ async def get_tearsheet(company_id: int):
         
         print(f"DEBUG: Answer result: {answer_result}")
         
-        return TearSheetResponse(
+        # Create tearsheet response
+        tearsheet_response = TearSheetResponse(
             company=company,
             overview=answer_result.get("answer", "No overview available"),
             funding={"status": "Information not available"},
@@ -463,6 +501,23 @@ async def get_tearsheet(company_id: int):
             key_customers=[],
             citations=urls
         )
+        
+        # Save tearsheet to database
+        tearsheet = TearSheet(
+            company_id=company.id,
+            overview=tearsheet_response.overview,
+            funding=tearsheet_response.funding,
+            hiring_signals=tearsheet_response.hiring_signals,
+            product_updates=tearsheet_response.product_updates,
+            key_customers=tearsheet_response.key_customers,
+            citations=tearsheet_response.citations,
+            generated_at=datetime.utcnow()
+        )
+        
+        saved_tearsheet = db.create_tearsheet(tearsheet)
+        print(f"DEBUG: Saved fresh tearsheet with ID: {saved_tearsheet.id}")
+        
+        return tearsheet_response
     
     except Exception as e:
         print(f"DEBUG: Exception occurred: {str(e)}")
@@ -475,6 +530,27 @@ async def get_tearsheet(company_id: int):
 async def list_signals(company_id: Optional[int] = None):
     """List signals/alerts"""
     return db.list_signals(company_id=company_id)
+
+@app.get("/tearsheets", response_model=List[TearSheet])
+async def list_tearsheets(company_id: Optional[int] = None):
+    """List all saved tearsheets"""
+    if company_id:
+        return db.get_tearsheets_by_company(company_id)
+    return db.list_tearsheets()
+
+@app.post("/tearsheets/{tearsheet_id}/make_old")
+async def make_tearsheet_old(tearsheet_id: int):
+    """Test endpoint: Make a tearsheet appear 8 days old"""
+    tearsheet = db.get_tearsheet(tearsheet_id)
+    if not tearsheet:
+        raise HTTPException(status_code=404, detail="Tearsheet not found")
+    
+    # Set the generated_at timestamp to 8 days ago
+    old_date = datetime.utcnow() - timedelta(days=8)
+    tearsheet.generated_at = old_date
+    
+    print(f"DEBUG: Made tearsheet {tearsheet_id} appear old (from {old_date})")
+    return {"message": f"Tearsheet {tearsheet_id} timestamp set to 8 days ago", "new_date": old_date}
 
 @app.post("/signals/detect", response_model=List[SignalResponse])
 async def detect_signals(request: SignalDetectionRequest):
@@ -650,13 +726,13 @@ async def detect_signals(request: SignalDetectionRequest):
                         content = f"Recent update found for {company.name}"
                     
                     # Create signal with actual content
-                    signal = SignalResponse(
+                        signal = SignalResponse(
                         id=999 + i,
                         type=SignalType.PRODUCT_UPDATE,
                         severity=SignalSeverity.MEDIUM,
-                        vendor=company.name,
+                            vendor=company.name,
                         url=url,
-                        detected_at=datetime.utcnow(),
+                            detected_at=datetime.utcnow(),
                         evidence=[{"snippet": content, "confidence": 0.9}],
                         rationale=content,
                         impacted_areas=["Product", "Pricing"],
@@ -666,10 +742,10 @@ async def detect_signals(request: SignalDetectionRequest):
                         diff_magnitude=0.5,
                         keyword_overlap=0.8,
                         score=0.9,
-                        last_crawled=datetime.utcnow(),
+                            last_crawled=datetime.utcnow(),
                         citations=[url]
-                    )
-                    signals.append(signal)
+                        )
+                        signals.append(signal)
                     print(f"DEBUG: Created signal {i+1} with content: {content[:100]}...")
                     
                 except Exception as e:
@@ -677,7 +753,7 @@ async def detect_signals(request: SignalDetectionRequest):
                     continue
         else:
             print(f"DEBUG: All search strategies failed - no results found for {company.name}")
-            
+                
     except Exception as e:
         print(f"DEBUG: Error using Exa API with retry for {company.name}: {e}")
         import traceback
@@ -732,9 +808,9 @@ async def generate_weekly_report(request: WeeklyReportRequest):
     
     for company_name, signals in company_signals.items():
         report_md += f"## {company_name}\n\n"
-        for signal in signals:
-            report_md += f"- **{signal.type.value.replace('_', ' ').title()}**: {signal.summary}\n"
-        report_md += "\n"
+    for signal in signals:
+        report_md += f"- **{signal.type.value.replace('_', ' ').title()}**: {signal.summary}\n"
+    report_md += "\n"
     
     report = Report(
         period_start=request.period_start,
@@ -749,3 +825,68 @@ async def generate_weekly_report(request: WeeklyReportRequest):
 async def list_reports():
     """List all reports"""
     return db.list_reports()
+
+@app.get("/sources/configuration", response_model=SourcesConfiguration)
+async def get_sources_configuration():
+    """Get the latest sources configuration"""
+    config = db.get_latest_sources_configuration()
+    if not config:
+        # Return default configuration if none exists
+        default_config = SourcesConfiguration(
+            allowed_domains=[
+                'linkedin.com/company/*',
+                '*.com/pricing',
+                '*.com/release-notes',
+                '*.com/security',
+                '*.com/blog'
+            ],
+            quality_controls={
+                'default_results_limit': 25,
+                'content_preference': 'highlights',
+                'livecrawl_mode': 'preferred'
+            }
+        )
+        return db.create_sources_configuration(default_config)
+    return config
+
+@app.post("/sources/configuration", response_model=SourcesConfiguration)
+async def save_sources_configuration(config: SourcesConfiguration):
+    """Save or update sources configuration"""
+    if config.id and config.id in db.sources_configurations:
+        return db.update_sources_configuration(config)
+    else:
+        return db.create_sources_configuration(config)
+
+@app.get("/settings/configuration", response_model=SettingsConfiguration)
+async def get_settings_configuration():
+    """Get the latest settings configuration"""
+    config = db.get_latest_settings_configuration()
+    if not config:
+        # Return default configuration if none exists
+        default_config = SettingsConfiguration(
+            schedule={
+                "enabled": True,
+                "frequency": "weekly",
+                "day": "monday",
+                "time": "09:00"
+            },
+            api_keys={
+                "exa_api_key": "c8b9a631-7ee0-45bf-9a36-e3b6b129ca98",
+                "slack_webhook": "",
+                "email_smtp": ""
+            },
+            retention={
+                "tearsheets_days": 365
+            },
+            signals_cache_duration_seconds=3600
+        )
+        return db.create_settings_configuration(default_config)
+    return config
+
+@app.post("/settings/configuration", response_model=SettingsConfiguration)
+async def save_settings_configuration(config: SettingsConfiguration):
+    """Save or update settings configuration"""
+    if config.id and config.id in db.settings_configurations:
+        return db.update_settings_configuration(config)
+    else:
+        return db.create_settings_configuration(config)
