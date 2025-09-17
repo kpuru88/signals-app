@@ -99,7 +99,7 @@ const WatchlistTab = () => {
     }
   }
 
-  const isCompanyResultCached = (companyId: number) => {
+  const getCompanyCacheInfo = (companyId: number) => {
     try {
       const cached = localStorage.getItem('companyResults')
       if (cached) {
@@ -107,12 +107,18 @@ const WatchlistTab = () => {
         const now = Date.now()
         
         // Check if cache is still valid and has data for this company
-        return (now - timestamp < CACHE_DURATION) && data[companyId]
+        if ((now - timestamp < CACHE_DURATION) && data[companyId]) {
+          const minutesAgo = Math.floor((now - timestamp) / (1000 * 60))
+          return {
+            isCached: true,
+            minutesAgo: minutesAgo
+          }
+        }
       }
     } catch (error) {
       console.error('Error checking cached company results:', error)
     }
-    return false
+    return { isCached: false, minutesAgo: 0 }
   }
 
   // Function to get paths from sources
@@ -583,11 +589,20 @@ const WatchlistTab = () => {
                       >
                         <FileText className="h-4 w-4 mr-2" />
                         View Results
-                        {isCompanyResultCached(company.id) && (
-                          <span className="ml-2 px-1.5 py-0.5 bg-green-100 text-green-800 rounded-full text-xs">
-                            Cached
-                          </span>
-                        )}
+                        {(() => {
+                          const cacheInfo = getCompanyCacheInfo(company.id)
+                          if (cacheInfo.isCached) {
+                            const timeText = cacheInfo.minutesAgo === 0 ? 'now' : 
+                                           cacheInfo.minutesAgo === 1 ? '1 min ago' : 
+                                           `${cacheInfo.minutesAgo} min ago`
+                            return (
+                              <span className="ml-2 px-1.5 py-0.5 bg-green-100 text-green-800 rounded-full text-xs">
+                                Updated {timeText}
+                              </span>
+                            )
+                          }
+                          return null
+                        })()}
                       </Button>
                     </div>
                   </div>
