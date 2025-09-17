@@ -264,8 +264,6 @@ async def get_tearsheet(company_id: int):
                 overview=latest_tearsheet.overview,
                 funding=latest_tearsheet.funding,
                 hiring_signals=latest_tearsheet.hiring_signals,
-                product_updates=latest_tearsheet.product_updates,
-                key_customers=latest_tearsheet.key_customers,
                 citations=latest_tearsheet.citations
             )
         else:
@@ -478,8 +476,6 @@ async def get_tearsheet(company_id: int):
                 overview="No information available - no search results found",
                 funding={"status": "Information not available"},
                 hiring_signals=hiring_data,
-                product_updates=[],
-                key_customers=[],
                 citations=[]
             )
         
@@ -497,8 +493,6 @@ async def get_tearsheet(company_id: int):
             overview=answer_result.get("answer", "No overview available"),
             funding={"status": "Information not available"},
             hiring_signals=hiring_data,
-            product_updates=[],
-            key_customers=[],
             citations=urls
         )
         
@@ -508,8 +502,6 @@ async def get_tearsheet(company_id: int):
             overview=tearsheet_response.overview,
             funding=tearsheet_response.funding,
             hiring_signals=tearsheet_response.hiring_signals,
-            product_updates=tearsheet_response.product_updates,
-            key_customers=tearsheet_response.key_customers,
             citations=tearsheet_response.citations,
             generated_at=datetime.utcnow()
         )

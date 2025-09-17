@@ -85,8 +85,6 @@ class TearSheet(BaseModel):
     overview: str
     funding: Dict[str, Any]
     hiring_signals: Dict[str, Any]
-    product_updates: List[Dict[str, Any]]
-    key_customers: List[str]
     citations: List[str]
     generated_at: datetime
     created_at: Optional[datetime] = None
@@ -112,8 +110,6 @@ class TearSheetResponse(BaseModel):
     overview: str
     funding: Dict[str, Any]
     hiring_signals: Dict[str, Any]
-    product_updates: List[Dict[str, Any]]
-    key_customers: List[str]
     citations: List[str]
 
 class WeeklyReportRequest(BaseModel):

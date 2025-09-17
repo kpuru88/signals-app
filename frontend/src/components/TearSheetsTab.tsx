@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Building2, ExternalLink, Users, DollarSign, Briefcase, FileText, BarChart3 } from 'lucide-react'
+import { Building2, ExternalLink, Users, DollarSign, FileText, BarChart3 } from 'lucide-react'
 import HiringTrendsChart from './HiringTrendsChart'
 
 interface Company {
@@ -19,8 +19,6 @@ interface TearSheet {
   overview: string
   funding: any
   hiring_signals: any
-  product_updates: any[]
-  key_customers: string[]
   citations: string[]
 }
 
@@ -179,118 +177,78 @@ const TearSheetsTab = () => {
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <div>
-                        <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                          <Building2 className="h-4 w-4" />
-                          Overview
-                        </h3>
-                        <p className="text-gray-700 text-sm leading-relaxed">
-                          {tearSheet.overview}
-                        </p>
-                      </div>
-
-                      <div>
-                        <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                          <DollarSign className="h-4 w-4" />
-                          Funding
-                        </h3>
-                        <p className="text-gray-600 text-sm">
-                          {tearSheet.funding.status || 'Information not available'}
-                        </p>
-                      </div>
-
-                      <div>
-                        <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                          <Users className="h-4 w-4" />
-                          Hiring Signals
-                        </h3>
-                        {tearSheet.hiring_signals && typeof tearSheet.hiring_signals === 'object' && !tearSheet.hiring_signals.status ? (
-                          <div className="space-y-4">
-                            <div className="grid grid-cols-2 gap-4">
-                              <div className="bg-blue-50 p-3 rounded-lg">
-                                <div className="text-2xl font-bold text-blue-600">
-                                  {tearSheet.hiring_signals.current_year_jobs || 0}
-                                </div>
-                                <div className="text-sm text-gray-600">Jobs in {new Date().getFullYear()}</div>
-                              </div>
-                              <div className="bg-green-50 p-3 rounded-lg">
-                                <div className="text-2xl font-bold text-green-600">
-                                  {tearSheet.hiring_signals.last_year_jobs || 0}
-                                </div>
-                                <div className="text-sm text-gray-600">Jobs in {new Date().getFullYear() - 1}</div>
-                              </div>
-                            </div>
-                            
-                            {/* Department-wise job breakdown with chart */}
-                            {tearSheet.hiring_signals.departments && (
-                              <div className="space-y-4">
-                                <div className="flex items-center gap-2 mb-4">
-                                  <BarChart3 className="h-5 w-5 text-blue-600" />
-                                  <h4 className="text-lg font-semibold text-gray-900">Jobs by Department</h4>
-                                </div>
-                                
-                                {/* Bar Chart */}
-                                <div className="bg-white border rounded-lg p-4">
-                                  <HiringTrendsChart 
-                                    departments={Object.fromEntries(
-                                      Object.entries(tearSheet.hiring_signals.departments).map(([dept, jobs]) => [
-                                        dept, 
-                                        Array.isArray(jobs) ? jobs.length : 0
-                                      ])
-                                    )}
-                                  />
-                                </div>
-                                
-                              </div>
-                            )}
-                            
-                          </div>
-                        ) : (
-                          <p className="text-gray-600 text-sm">
-                            {tearSheet.hiring_signals?.status || 'Information not available'}
-                          </p>
-                        )}
-                      </div>
+                  <div className="space-y-6">
+                    <div>
+                      <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <Building2 className="h-5 w-5" />
+                        Overview
+                      </h3>
+                      <p className="text-gray-700 leading-relaxed">
+                        {tearSheet.overview}
+                      </p>
                     </div>
 
-                    <div className="space-y-4">
-                      <div>
-                        <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                          <FileText className="h-4 w-4" />
-                          Product Updates
-                        </h3>
-                        {tearSheet.product_updates.length > 0 ? (
-                          <ul className="space-y-1">
-                            {tearSheet.product_updates.map((update, index) => (
-                              <li key={index} className="text-sm text-gray-700">
-                                • {update.summary || update}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="text-gray-600 text-sm">No recent updates found</p>
-                        )}
-                      </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <DollarSign className="h-5 w-5" />
+                        Funding
+                      </h3>
+                      <p className="text-gray-600">
+                        {tearSheet.funding.status || 'Information not available'}
+                      </p>
+                    </div>
 
-                      <div>
-                        <h3 className="font-semibold text-gray-900 mb-2 flex items-center gap-2">
-                          <Briefcase className="h-4 w-4" />
-                          Key Customers
-                        </h3>
-                        {tearSheet.key_customers.length > 0 ? (
-                          <ul className="space-y-1">
-                            {tearSheet.key_customers.map((customer, index) => (
-                              <li key={index} className="text-sm text-gray-700">
-                                • {customer}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : (
-                          <p className="text-gray-600 text-sm">No customer information available</p>
-                        )}
-                      </div>
+                    <div>
+                      <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                        <Users className="h-5 w-5" />
+                        Hiring Signals
+                      </h3>
+                      {tearSheet.hiring_signals && typeof tearSheet.hiring_signals === 'object' && !tearSheet.hiring_signals.status ? (
+                        <div className="space-y-4">
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-blue-50 p-4 rounded-lg">
+                              <div className="text-2xl font-bold text-blue-600">
+                                {tearSheet.hiring_signals.current_year_jobs || 0}
+                              </div>
+                              <div className="text-sm text-gray-600">Jobs in {new Date().getFullYear()}</div>
+                            </div>
+                            <div className="bg-green-50 p-4 rounded-lg">
+                              <div className="text-2xl font-bold text-green-600">
+                                {tearSheet.hiring_signals.last_year_jobs || 0}
+                              </div>
+                              <div className="text-sm text-gray-600">Jobs in {new Date().getFullYear() - 1}</div>
+                            </div>
+                          </div>
+                          
+                          {/* Department-wise job breakdown with chart */}
+                          {tearSheet.hiring_signals.departments && (
+                            <div className="space-y-4">
+                              <div className="flex items-center gap-2 mb-4">
+                                <BarChart3 className="h-5 w-5 text-blue-600" />
+                                <h4 className="text-lg font-semibold text-gray-900">Jobs by Department</h4>
+                              </div>
+                              
+                              {/* Bar Chart */}
+                              <div className="bg-white border rounded-lg p-4">
+                                <HiringTrendsChart 
+                                  departments={Object.fromEntries(
+                                    Object.entries(tearSheet.hiring_signals.departments).map(([dept, jobs]) => [
+                                      dept, 
+                                      Array.isArray(jobs) ? jobs.length : 0
+                                    ])
+                                  )}
+                                />
+                              </div>
+                              
+                            </div>
+                          )}
+                          
+                        </div>
+                      ) : (
+                        <p className="text-gray-600">
+                          {tearSheet.hiring_signals?.status || 'Information not available'}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </CardContent>
