@@ -139,9 +139,6 @@ const TearSheetsTab = () => {
                       <Button size="sm" variant="outline">
                         Export PDF
                       </Button>
-                      <Button size="sm" variant="outline">
-                        Send to Slack
-                      </Button>
                     </div>
                   </div>
                 </CardHeader>
