@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Building2, ExternalLink, Users, DollarSign, Briefcase, FileText } from 'lucide-react'
+import { Building2, ExternalLink, Users, DollarSign, Briefcase, FileText, BarChart3 } from 'lucide-react'
+import HiringTrendsChart from './HiringTrendsChart'
 
 interface Company {
   id: number
@@ -189,55 +190,29 @@ const TearSheetsTab = () => {
                               </div>
                             </div>
                             
-                            {/* Department-wise job breakdown */}
+                            {/* Department-wise job breakdown with chart */}
                             {tearSheet.hiring_signals.departments && (
-                              <div className="space-y-3">
-                                <h4 className="text-sm font-medium text-gray-700 mb-3">Jobs by Department:</h4>
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  {Object.entries(tearSheet.hiring_signals.departments).map(([dept, jobs]) => (
-                                    <div key={dept} className="border rounded-lg p-3">
-                                      <div className="flex items-center justify-between mb-2">
-                                        <h5 className="font-medium text-gray-900">{dept}</h5>
-                                        <Badge variant="outline" className="text-xs">
-                                          {Array.isArray(jobs) ? jobs.length : 0} roles
-                                        </Badge>
-                                      </div>
-                                      {Array.isArray(jobs) && jobs.length > 0 ? (
-                                        <div className="space-y-1">
-                                          {jobs.slice(0, 3).map((job: string, index: number) => (
-                                            <div key={index} className="text-xs text-gray-600 truncate">
-                                              • {job}
-                                            </div>
-                                          ))}
-                                          {jobs.length > 3 && (
-                                            <div className="text-xs text-gray-500">
-                                              +{jobs.length - 3} more...
-                                            </div>
-                                          )}
-                                        </div>
-                                      ) : (
-                                        <div className="text-xs text-gray-500">No roles found</div>
-                                      )}
-                                    </div>
-                                  ))}
+                              <div className="space-y-4">
+                                <div className="flex items-center gap-2 mb-4">
+                                  <BarChart3 className="h-5 w-5 text-blue-600" />
+                                  <h4 className="text-lg font-semibold text-gray-900">Jobs by Department</h4>
                                 </div>
+                                
+                                {/* Bar Chart */}
+                                <div className="bg-white border rounded-lg p-4">
+                                  <HiringTrendsChart 
+                                    departments={Object.fromEntries(
+                                      Object.entries(tearSheet.hiring_signals.departments).map(([dept, jobs]) => [
+                                        dept, 
+                                        Array.isArray(jobs) ? jobs.length : 0
+                                      ])
+                                    )}
+                                  />
+                                </div>
+                                
                               </div>
                             )}
                             
-                            {tearSheet.hiring_signals.hiring_trends && (
-                              <div className="bg-gray-50 p-3 rounded-lg">
-                                <h4 className="text-sm font-medium text-gray-700 mb-2">Hiring Trends Analysis:</h4>
-                                <div 
-                                  className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed"
-                                  dangerouslySetInnerHTML={{
-                                    __html: tearSheet.hiring_signals.hiring_trends
-                                      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                                      .replace(/\n/g, '<br/>')
-                                      .replace(/(https?:\/\/[^\s<>"{}|\\^`[\]]+?)(?=[\s<>"{}|\\^`[\]]|$|[.,;:!?\)\]])/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">$1</a>')
-                                  }}
-                                />
-                              </div>
-                            )}
                           </div>
                         ) : (
                           <p className="text-gray-600 text-sm">

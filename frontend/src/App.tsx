@@ -12,7 +12,7 @@ import {
 
 import WatchlistTab from './components/WatchlistTab'
 import TearSheetsTab from './components/TearSheetsTab'
-import SignalsTab from './components/SignalsTab'
+import SignalsAlertsTab from './components/SignalsAlertsTab'
 import ReportsTab from './components/ReportsTab'
 import SourcesTab from './components/SourcesTab'
 import SettingsTab from './components/SettingsTab'
@@ -78,7 +78,7 @@ function App() {
           </TabsContent>
 
           <TabsContent value="signals">
-            <SignalsTab />
+            <SignalsAlertsTab />
           </TabsContent>
 
           <TabsContent value="reports">

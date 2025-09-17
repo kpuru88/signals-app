@@ -37,12 +37,71 @@ const SignalsTab = () => {
 
   const fetchSignals = async () => {
     setLoading(true)
+    console.log('DEBUG: Starting fetchSignals, API_BASE:', API_BASE)
     try {
-      const response = await fetch(`${API_BASE}/signals`)
-      if (response.ok) {
-        const data = await response.json()
-        setSignals(data)
+      // First get all companies to detect signals for
+      console.log('DEBUG: Fetching companies from:', `${API_BASE}/vendors`)
+      const companiesResponse = await fetch(`${API_BASE}/vendors`)
+      console.log('DEBUG: Companies response status:', companiesResponse.status)
+      if (!companiesResponse.ok) {
+        throw new Error('Failed to fetch companies')
       }
+      const companies = await companiesResponse.json()
+      console.log('DEBUG: Companies fetched:', companies)
+      
+      // Fetch recent signals using Exa API for each company
+      const allSignals = []
+      for (const company of companies) {
+        try {
+          console.log(`DEBUG: Fetching signals for company: ${company.name} (ID: ${company.id})`)
+          const requestBody = {
+            company_id: company.id,
+            signal_types: ['pricing_change', 'product_update', 'security_update'],
+            include_paths: ['/pricing', '/release-notes', '/changelog', '/security'],
+            start_date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // Last 7 days
+            end_date: new Date().toISOString(),
+            use_livecrawl: false
+          }
+          console.log('DEBUG: Request body:', requestBody)
+          
+          const signalsResponse = await fetch(`${API_BASE}/signals/detect`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody)
+          })
+          
+          console.log(`DEBUG: Signals response status for ${company.name}:`, signalsResponse.status)
+          
+          if (signalsResponse.ok) {
+            const signals = await signalsResponse.json()
+            console.log(`DEBUG: Signals received for ${company.name}:`, signals)
+            // Convert SignalResponse to Signal format for frontend compatibility
+            const convertedSignals = signals.map((signal: any) => ({
+              id: signal.id || Math.random(),
+              company_id: company.id,
+              type: signal.type,
+              title: signal.rationale || `${signal.type.replace('_', ' ')} - ${signal.vendor}`,
+              summary: signal.rationale,
+              severity: signal.severity,
+              confidence: signal.confidence,
+              urls: signal.citations || [signal.url],
+              created_at: signal.detected_at
+            }))
+            allSignals.push(...convertedSignals)
+          } else {
+            console.error(`DEBUG: Failed to fetch signals for ${company.name}:`, signalsResponse.status, signalsResponse.statusText)
+          }
+        } catch (error) {
+          console.error(`Error fetching signals for ${company.name}:`, error)
+        }
+      }
+      
+      // Sort signals by date (most recent first)
+      allSignals.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      console.log('DEBUG: Final signals array:', allSignals)
+      setSignals(allSignals)
     } catch (error) {
       console.error('Error fetching signals:', error)
     } finally {
@@ -106,7 +165,7 @@ const SignalsTab = () => {
       <div className="flex justify-between items-center">
         <div>
           <h2 className="text-3xl font-bold text-gray-900">Signals & Alerts</h2>
-          <p className="text-gray-600 mt-2">Detected changes and important updates</p>
+          <p className="text-gray-600 mt-2">Recent changes and updates detected via Exa API</p>
         </div>
         <Button onClick={fetchSignals} disabled={loading}>
           <Bell className="h-4 w-4 mr-2" />
@@ -114,13 +173,23 @@ const SignalsTab = () => {
         </Button>
       </div>
 
-      {signals.length === 0 ? (
+      {loading ? (
+        <Card className="text-center py-12">
+          <CardContent>
+            <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4 animate-pulse" />
+            <h3 className="text-lg font-medium text-gray-900 mb-2">Fetching recent signals...</h3>
+            <p className="text-gray-600 mb-4">
+              Using Exa API to detect the latest changes across your watchlist.
+            </p>
+          </CardContent>
+        </Card>
+      ) : signals.length === 0 ? (
         <Card className="text-center py-12">
           <CardContent>
             <Bell className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No signals yet</h3>
+            <h3 className="text-lg font-medium text-gray-900 mb-2">No recent signals found</h3>
             <p className="text-gray-600 mb-4">
-              Run your watchlist to start detecting changes and generating signals.
+              No changes detected in the last 7 days. Try refreshing or check if you have companies in your watchlist.
             </p>
           </CardContent>
         </Card>

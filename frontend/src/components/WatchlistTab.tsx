@@ -33,6 +33,7 @@ interface Company {
 const WatchlistTab = () => {
   const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(false)
+  const [companyLoading, setCompanyLoading] = useState<{[key: number]: boolean}>({})
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingCompany, setEditingCompany] = useState<number | null>(null)
   const [editingName, setEditingName] = useState('')
@@ -148,7 +149,7 @@ const WatchlistTab = () => {
   }
 
   const runCompanyWatchlist = async (companyId: number) => {
-    setLoading(true)
+    setCompanyLoading(prev => ({...prev, [companyId]: true}))
     try {
       const response = await fetch(`${API_BASE}/run/watchlist`, {
         method: 'POST',
@@ -188,7 +189,7 @@ const WatchlistTab = () => {
       console.error('Error running company watchlist:', error)
       alert(`Error running watchlist: ${error instanceof Error ? error.message : 'Network error'}`)
     } finally {
-      setLoading(false)
+      setCompanyLoading(prev => ({...prev, [companyId]: false}))
     }
   }
 
@@ -475,11 +476,11 @@ const WatchlistTab = () => {
                     <div className="flex gap-2">
                       <Button
                         onClick={() => runCompanyWatchlist(company.id)}
-                        disabled={loading}
+                        disabled={companyLoading[company.id] || loading}
                         size="sm"
                         variant="outline"
                       >
-                        {loading ? (
+                        {companyLoading[company.id] ? (
                           <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600"></div>
                         ) : (
                           <Play className="h-4 w-4 mr-2" />
@@ -584,7 +585,7 @@ const WatchlistTab = () => {
                               __html: result.answer_content
                                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                                 .replace(/\n/g, '<br/>')
-                                .replace(/(https?:\/\/[^\s<>"{}|\\^`[\]]+?)(?=[\s<>"{}|\\^`[\]]|$|[.,;:!?\)\]])/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">$1</a>')
+                                .replace(/(https?:\/\/[^\s<>"{}|\\^`[\]]+?)(?=[\s<>"{}|\\^`[\]]|$|\))/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">$1</a>')
                             }}
                           />
                         </div>
@@ -706,7 +707,7 @@ const WatchlistTab = () => {
                           __html: companyResults[company.id].answer_content
                             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                             .replace(/\n/g, '<br/>')
-                            .replace(/(https?:\/\/[^\s<>"{}|\\^`[\]]+?)(?=[\s<>"{}|\\^`[\]]|$|[.,;:!?\)\]])/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">$1</a>')
+                            .replace(/(https?:\/\/[^\s<>"{}|\\^`[\]]+?)(?=[\s<>"{}|\\^`[\]]|$|\))/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">$1</a>')
                         }}
                       />
                     </div>
