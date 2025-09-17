@@ -278,6 +278,7 @@ const WatchlistTab = () => {
   }
 
   const runCompanyWatchlist = async (companyId: number) => {
+    console.log(`DEBUG: Starting runCompanyWatchlist for company ID: ${companyId}`)
     setCompanyLoading(prev => ({...prev, [companyId]: true}))
     
         // Clear cache for this company when running fresh
@@ -304,13 +305,15 @@ const WatchlistTab = () => {
         // Store results for this specific company
         if (result.results && result.results.length > 0) {
           const companyResult = result.results[0]
+          console.log(`DEBUG: Storing company result for ID ${companyId}:`, companyResult)
           const newResults = {
             ...companyResults,
             [companyId]: companyResult
           }
           
-                setCompanyResults(newResults)
-                saveCachedCompanyResults(newResults, companyId)
+          console.log(`DEBUG: New results object:`, newResults)
+          setCompanyResults(newResults)
+          saveCachedCompanyResults(newResults, companyId)
           
           // Show success message
           const urlsFound = companyResult.urls_found || 0
@@ -810,7 +813,10 @@ const WatchlistTab = () => {
               </DialogDescription>
             </DialogHeader>
             
-            {companyResults[company.id] && (
+            {(() => {
+              console.log(`DEBUG: Dialog for company ${company.id}, companyResults:`, companyResults[company.id])
+              return companyResults[company.id]
+            })() && (
               <div className="space-y-6">
                 {/* Summary Stats */}
                 <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
