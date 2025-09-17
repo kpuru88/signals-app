@@ -36,6 +36,12 @@ const TearSheetsTab = () => {
     fetchCompanies()
   }, [])
 
+  useEffect(() => {
+    if (selectedCompany) {
+      checkExistingTearSheet(selectedCompany.id)
+    }
+  }, [selectedCompany])
+
   const fetchCompanies = async () => {
     try {
       const response = await fetch(`${API_BASE}/vendors`)
@@ -45,6 +51,22 @@ const TearSheetsTab = () => {
       }
     } catch (error) {
       console.error('Error fetching companies:', error)
+    }
+  }
+
+  const checkExistingTearSheet = async (companyId: number) => {
+    try {
+      const response = await fetch(`${API_BASE}/tearsheet/${companyId}`)
+      if (response.ok) {
+        const data = await response.json()
+        setTearSheet(data)
+      } else if (response.status === 404) {
+        // No existing tearsheet found, reset to null
+        setTearSheet(null)
+      }
+    } catch (error) {
+      console.error('Error checking existing tear-sheet:', error)
+      setTearSheet(null)
     }
   }
 
@@ -105,7 +127,7 @@ const TearSheetsTab = () => {
                   onClick={() => generateTearSheet(selectedCompany.id)}
                   disabled={loading}
                 >
-                  {loading ? 'Generating...' : 'Generate Tear-Sheet'}
+                  {loading ? 'Generating...' : (tearSheet ? 'Regenerate Tear-Sheet' : 'Generate Tear-Sheet')}
                 </Button>
               )}
             </CardContent>
@@ -113,12 +135,26 @@ const TearSheetsTab = () => {
         </div>
 
         <div className="lg:col-span-2">
-          {!tearSheet ? (
+          {!selectedCompany ? (
             <Card className="h-full flex items-center justify-center">
               <CardContent className="text-center py-12">
                 <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h3 className="text-lg font-medium text-gray-900 mb-2">No tear-sheet selected</h3>
-                <p className="text-gray-600">Select a company and generate a tear-sheet to view detailed insights</p>
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No company selected</h3>
+                <p className="text-gray-600">Select a company from the list to view or generate a tear-sheet</p>
+              </CardContent>
+            </Card>
+          ) : !tearSheet ? (
+            <Card className="h-full flex items-center justify-center">
+              <CardContent className="text-center py-12">
+                <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                <h3 className="text-lg font-medium text-gray-900 mb-2">No tear-sheet available for {selectedCompany.name}</h3>
+                <p className="text-gray-600 mb-4">Click the "Generate Tear-Sheet" button to create a fresh one</p>
+                <Button 
+                  onClick={() => generateTearSheet(selectedCompany.id)}
+                  disabled={loading}
+                >
+                  {loading ? 'Generating...' : 'Generate Tear-Sheet'}
+                </Button>
               </CardContent>
             </Card>
           ) : (
