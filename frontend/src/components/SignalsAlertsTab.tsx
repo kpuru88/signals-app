@@ -61,8 +61,6 @@ const SignalsAlertsTab = () => {
   const [companies, setCompanies] = useState<Company[]>([]);
   const [loading, setLoading] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState<number | null>(null);
-  const [selectedSignalType, setSelectedSignalType] = useState<string | null>(null);
-  const [selectedSeverity, setSelectedSeverity] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
   
   // Cache state
@@ -78,7 +76,7 @@ const SignalsAlertsTab = () => {
 
   // Cache utility functions
   const getCacheKey = () => {
-    return `signals_${selectedCompany || 'all'}_${selectedSignalType || 'all'}_${selectedSeverity || 'all'}`;
+    return `signals_${selectedCompany || 'all'}`;
   };
 
   const isCacheValid = (cacheEntry: CacheEntry): boolean => {
@@ -186,7 +184,7 @@ const SignalsAlertsTab = () => {
       // Only fetch if no cached data
       fetchSignals();
     }
-  }, [companies, selectedCompany, selectedSignalType, selectedSeverity]);
+  }, [companies, selectedCompany]);
 
   const fetchSignals = async (_forceRefresh: boolean = false) => {
     setLoading(true);
@@ -213,9 +211,7 @@ const SignalsAlertsTab = () => {
             },
             body: JSON.stringify({
               company_id: company.id,
-              signal_types: selectedSignalType 
-                ? [selectedSignalType as any] 
-                : ['pricing_change', 'product_update', 'security_update'],
+              signal_types: ['pricing_change', 'product_update', 'security_update'],
               include_paths: ['/pricing', '/release-notes', '/changelog', '/security'],
               start_date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // Last 7 days
               end_date: new Date().toISOString(),
@@ -235,10 +231,8 @@ const SignalsAlertsTab = () => {
         }
       }
       
-      // Filter by severity if selected
-      const filteredSignals = selectedSeverity 
-        ? allSignals.filter(s => s.severity === selectedSeverity)
-        : allSignals;
+      // No additional filtering needed - just use all signals
+      const filteredSignals = allSignals;
       
       // Sort signals by date (most recent first)
       filteredSignals.sort((a, b) => new Date(b.detected_at || '').getTime() - new Date(a.detected_at || '').getTime());
@@ -393,7 +387,7 @@ const SignalsAlertsTab = () => {
       {/* Filters */}
       {showFilters && (
         <div className="bg-white border border-gray-200 rounded-lg p-4 space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Company</label>
               <select
@@ -405,34 +399,6 @@ const SignalsAlertsTab = () => {
                 {companies.map(company => (
                   <option key={company.id} value={company.id}>{company.name}</option>
                 ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Signal Type</label>
-              <select
-                value={selectedSignalType || ''}
-                onChange={(e) => setSelectedSignalType(e.target.value || null)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">All Types</option>
-                <option value="pricing_change">Pricing Change</option>
-                <option value="product_update">Product Update</option>
-                <option value="security_update">Security Update</option>
-                <option value="funding">Funding</option>
-                <option value="hiring">Hiring</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Severity</label>
-              <select
-                value={selectedSeverity || ''}
-                onChange={(e) => setSelectedSeverity(e.target.value || null)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                <option value="">All Severities</option>
-                <option value="high">High (P0)</option>
-                <option value="medium">Medium (P1)</option>
-                <option value="low">Low (P2)</option>
               </select>
             </div>
           </div>
