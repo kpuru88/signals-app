@@ -69,15 +69,28 @@ const WatchlistTab = () => {
     try {
       const cached = localStorage.getItem('companyResults')
       if (cached) {
-        const { data, timestamp } = JSON.parse(cached)
+        const { data, timestamps } = JSON.parse(cached)
         const now = Date.now()
         
-        // Check if cache is still valid
-        if (now - timestamp < CACHE_DURATION) {
-          setCompanyResults(data)
-          console.log('Loaded cached company results:', data)
+        // Filter out expired results for each company
+        const validResults: {[key: number]: any} = {}
+        const validTimestamps: {[key: number]: number} = {}
+        
+        Object.keys(data).forEach(companyIdStr => {
+          const companyId = parseInt(companyIdStr)
+          const companyTimestamp = timestamps[companyId] || 0
+          
+          if (now - companyTimestamp < CACHE_DURATION) {
+            validResults[companyId] = data[companyId]
+            validTimestamps[companyId] = companyTimestamp
+          }
+        })
+        
+        if (Object.keys(validResults).length > 0) {
+          setCompanyResults(validResults)
+          console.log('Loaded cached company results:', validResults)
         } else {
-          console.log('Cached company results expired, clearing cache')
+          console.log('All cached company results expired, clearing cache')
           localStorage.removeItem('companyResults')
         }
       }
@@ -86,14 +99,41 @@ const WatchlistTab = () => {
     }
   }
 
-  const saveCachedCompanyResults = (results: {[key: number]: any}) => {
+  const saveCachedCompanyResults = (results: {[key: number]: any}, updatedCompanyId?: number) => {
     try {
+      // Get existing cache data
+      const existingCached = localStorage.getItem('companyResults')
+      let existingData = {}
+      let existingTimestamps: {[key: number]: number} = {}
+      
+      if (existingCached) {
+        const parsed = JSON.parse(existingCached)
+        existingData = parsed.data || {}
+        existingTimestamps = parsed.timestamps || {}
+      }
+      
+      // Merge with new results
+      const mergedData = { ...existingData, ...results }
+      
+      // Update timestamps - only update the specific company that was just run
+      const now = Date.now()
+      const mergedTimestamps = { ...existingTimestamps }
+      
+      if (updatedCompanyId !== undefined) {
+        mergedTimestamps[updatedCompanyId] = now
+      } else {
+        // If no specific company ID, update all companies in results
+        Object.keys(results).forEach(companyIdStr => {
+          mergedTimestamps[parseInt(companyIdStr)] = now
+        })
+      }
+      
       const cacheData = {
-        data: results,
-        timestamp: Date.now()
+        data: mergedData,
+        timestamps: mergedTimestamps
       }
       localStorage.setItem('companyResults', JSON.stringify(cacheData))
-      console.log('Saved company results to cache:', results)
+      console.log('Saved company results to cache:', mergedData, 'with timestamps:', mergedTimestamps)
     } catch (error) {
       console.error('Error saving cached company results:', error)
     }
@@ -103,12 +143,13 @@ const WatchlistTab = () => {
     try {
       const cached = localStorage.getItem('companyResults')
       if (cached) {
-        const { data, timestamp } = JSON.parse(cached)
+        const { data, timestamps } = JSON.parse(cached)
         const now = Date.now()
         
         // Check if cache is still valid and has data for this company
-        if ((now - timestamp < CACHE_DURATION) && data[companyId]) {
-          const minutesAgo = Math.floor((now - timestamp) / (1000 * 60))
+        const companyTimestamp = timestamps[companyId] || 0
+        if ((now - companyTimestamp < CACHE_DURATION) && data[companyId]) {
+          const minutesAgo = Math.floor((now - companyTimestamp) / (1000 * 60))
           return {
             isCached: true,
             minutesAgo: minutesAgo
@@ -239,11 +280,11 @@ const WatchlistTab = () => {
   const runCompanyWatchlist = async (companyId: number) => {
     setCompanyLoading(prev => ({...prev, [companyId]: true}))
     
-    // Clear cache for this company when running fresh
-    const newResults = { ...companyResults }
-    delete newResults[companyId]
-    setCompanyResults(newResults)
-    saveCachedCompanyResults(newResults)
+        // Clear cache for this company when running fresh
+        const newResults = { ...companyResults }
+        delete newResults[companyId]
+        setCompanyResults(newResults)
+        saveCachedCompanyResults(newResults, companyId)
     
     try {
       const response = await fetch(`${API_BASE}/run/watchlist`, {
@@ -268,8 +309,8 @@ const WatchlistTab = () => {
             [companyId]: companyResult
           }
           
-          setCompanyResults(newResults)
-          saveCachedCompanyResults(newResults)
+                setCompanyResults(newResults)
+                saveCachedCompanyResults(newResults, companyId)
           
           // Show success message
           const urlsFound = companyResult.urls_found || 0
