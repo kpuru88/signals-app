@@ -42,7 +42,13 @@ const HiringTrendsChart: React.FC<HiringTrendsChartProps> = ({
           />
           <YAxis 
             tick={{ fontSize: 12 }}
-            label={{ value: 'Number of Jobs', angle: -90, position: 'insideLeft' }}
+            label={{ 
+              value: 'Number of Jobs', 
+              angle: -90, 
+              position: 'insideLeft',
+              style: { textAnchor: 'middle' },
+              offset: -10
+            }}
           />
           <Tooltip 
             formatter={(value: number) => [value, 'Jobs']}
