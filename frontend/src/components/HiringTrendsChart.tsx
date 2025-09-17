@@ -8,9 +8,7 @@ interface HiringTrendsChartProps {
 }
 
 const HiringTrendsChart: React.FC<HiringTrendsChartProps> = ({ 
-  departments, 
-  currentYear = new Date().getFullYear(),
-  previousYear = new Date().getFullYear() - 1 
+  departments
 }) => {
   // Convert departments object to array for the chart
   const data = Object.entries(departments).map(([name, count]) => ({
@@ -57,7 +55,7 @@ const HiringTrendsChart: React.FC<HiringTrendsChartProps> = ({
             }}
           />
           <Bar dataKey="jobs" radius={[4, 4, 0, 0]}>
-            {data.map((entry, index) => (
+            {data.map((_entry, index) => (
               <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
             ))}
           </Bar>

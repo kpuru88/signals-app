@@ -389,7 +389,7 @@ const SignalsAlertsTab = () => {
     }
   };
 
-  const getWhyItMatters = (signalType: string, impactedAreas: string[]) => {
+  const _getWhyItMatters = (signalType: string, impactedAreas: string[]) => {
     const templates = {
       'pricing_change': 'Pricing changes directly impact your cost structure and competitive positioning. Monitor for budget adjustments and competitive analysis opportunities.',
       'product_update': 'Product updates may affect your integration roadmap, feature parity, or competitive differentiation. Track for strategic planning and technical alignment.',
