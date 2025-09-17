@@ -42,11 +42,15 @@ const WatchlistTab = () => {
   const [companyResults, setCompanyResults] = useState<{[key: number]: any}>({})
   const [companyDialogs, setCompanyDialogs] = useState<{[key: number]: boolean}>({})
   const [sourcesConfig, setSourcesConfig] = useState<{allowed_domains: string[]} | null>(null)
+  
+  // Cache configuration - 1 hour default
+  const CACHE_DURATION = 60 * 60 * 1000 // 1 hour in milliseconds
 
   
-  // Load sources configuration on component mount
+  // Load sources configuration and cached results on component mount
   useEffect(() => {
     loadSourcesConfiguration()
+    loadCachedCompanyResults()
   }, [])
 
   const loadSourcesConfiguration = async () => {
@@ -59,6 +63,56 @@ const WatchlistTab = () => {
     } catch (error) {
       console.error('Error loading sources configuration:', error)
     }
+  }
+
+  const loadCachedCompanyResults = () => {
+    try {
+      const cached = localStorage.getItem('companyResults')
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached)
+        const now = Date.now()
+        
+        // Check if cache is still valid
+        if (now - timestamp < CACHE_DURATION) {
+          setCompanyResults(data)
+          console.log('Loaded cached company results:', data)
+        } else {
+          console.log('Cached company results expired, clearing cache')
+          localStorage.removeItem('companyResults')
+        }
+      }
+    } catch (error) {
+      console.error('Error loading cached company results:', error)
+    }
+  }
+
+  const saveCachedCompanyResults = (results: {[key: number]: any}) => {
+    try {
+      const cacheData = {
+        data: results,
+        timestamp: Date.now()
+      }
+      localStorage.setItem('companyResults', JSON.stringify(cacheData))
+      console.log('Saved company results to cache:', results)
+    } catch (error) {
+      console.error('Error saving cached company results:', error)
+    }
+  }
+
+  const isCompanyResultCached = (companyId: number) => {
+    try {
+      const cached = localStorage.getItem('companyResults')
+      if (cached) {
+        const { data, timestamp } = JSON.parse(cached)
+        const now = Date.now()
+        
+        // Check if cache is still valid and has data for this company
+        return (now - timestamp < CACHE_DURATION) && data[companyId]
+      }
+    } catch (error) {
+      console.error('Error checking cached company results:', error)
+    }
+    return false
   }
 
   // Function to get paths from sources
@@ -178,6 +232,13 @@ const WatchlistTab = () => {
 
   const runCompanyWatchlist = async (companyId: number) => {
     setCompanyLoading(prev => ({...prev, [companyId]: true}))
+    
+    // Clear cache for this company when running fresh
+    const newResults = { ...companyResults }
+    delete newResults[companyId]
+    setCompanyResults(newResults)
+    saveCachedCompanyResults(newResults)
+    
     try {
       const response = await fetch(`${API_BASE}/run/watchlist`, {
         method: 'POST',
@@ -196,10 +257,13 @@ const WatchlistTab = () => {
         // Store results for this specific company
         if (result.results && result.results.length > 0) {
           const companyResult = result.results[0]
-          setCompanyResults(prev => ({
-            ...prev,
+          const newResults = {
+            ...companyResults,
             [companyId]: companyResult
-          }))
+          }
+          
+          setCompanyResults(newResults)
+          saveCachedCompanyResults(newResults)
           
           // Show success message
           const urlsFound = companyResult.urls_found || 0
@@ -519,6 +583,11 @@ const WatchlistTab = () => {
                       >
                         <FileText className="h-4 w-4 mr-2" />
                         View Results
+                        {isCompanyResultCached(company.id) && (
+                          <span className="ml-2 px-1.5 py-0.5 bg-green-100 text-green-800 rounded-full text-xs">
+                            Cached
+                          </span>
+                        )}
                       </Button>
                     </div>
                   </div>
