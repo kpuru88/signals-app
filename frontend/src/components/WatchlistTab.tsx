@@ -293,27 +293,6 @@ const WatchlistTab = () => {
           <p className="text-gray-600 mt-2">Monitor pricing, release notes, and security updates</p>
         </div>
         <div className="flex gap-3">
-          <Button 
-            onClick={() => runWatchlist()} 
-            disabled={loading}
-            variant="outline"
-          >
-            {loading ? (
-              <div className="h-4 w-4 mr-2 animate-spin rounded-full border-2 border-gray-300 border-t-gray-600"></div>
-            ) : (
-              <Play className="h-4 w-4 mr-2" />
-            )}
-            {loading ? 'Running...' : 'Run Now'}
-          </Button>
-          
-          <Button 
-            onClick={() => setIsResultsDialogOpen(true)}
-            variant="secondary"
-            disabled={!watchlistResults}
-          >
-            <FileText className="h-4 w-4 mr-2" />
-            View Results
-          </Button>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button>
