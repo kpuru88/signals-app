@@ -2,7 +2,7 @@ from typing import Dict, List, Optional
 from datetime import datetime
 import hashlib
 import json
-from .models import Company, VendorWatch, PageSnapshot, Diff, Signal, Report
+from .models import Company, VendorWatch, PageSnapshot, Diff, Signal, Report, TearSheet, SourcesConfiguration, SettingsConfiguration
 
 class InMemoryDatabase:
     def __init__(self):
@@ -12,6 +12,9 @@ class InMemoryDatabase:
         self.diffs: Dict[int, Diff] = {}
         self.signals: Dict[int, Signal] = {}
         self.reports: Dict[int, Report] = {}
+        self.tearsheets: Dict[int, TearSheet] = {}
+        self.sources_configurations: Dict[int, SourcesConfiguration] = {}
+        self.settings_configurations: Dict[int, SettingsConfiguration] = {}
         
         self._company_counter = 1
         self._vendor_watch_counter = 1
@@ -19,6 +22,9 @@ class InMemoryDatabase:
         self._diff_counter = 1
         self._signal_counter = 1
         self._report_counter = 1
+        self._tearsheet_counter = 1
+        self._sources_config_counter = 1
+        self._settings_config_counter = 1
 
     def create_company(self, company: Company) -> Company:
         company.id = self._company_counter
@@ -89,5 +95,65 @@ class InMemoryDatabase:
 
     def get_signals(self) -> List[Signal]:
         return sorted(self.signals.values(), key=lambda x: x.created_at or datetime.min, reverse=True)
+
+    def create_tearsheet(self, tearsheet: TearSheet) -> TearSheet:
+        tearsheet.id = self._tearsheet_counter
+        tearsheet.created_at = datetime.utcnow()
+        self.tearsheets[self._tearsheet_counter] = tearsheet
+        self._tearsheet_counter += 1
+        return tearsheet
+
+    def get_tearsheet(self, tearsheet_id: int) -> Optional[TearSheet]:
+        return self.tearsheets.get(tearsheet_id)
+
+    def get_tearsheets_by_company(self, company_id: int) -> List[TearSheet]:
+        return [t for t in self.tearsheets.values() if t.company_id == company_id]
+
+    def list_tearsheets(self) -> List[TearSheet]:
+        return sorted(self.tearsheets.values(), key=lambda x: x.created_at or datetime.min, reverse=True)
+
+    def create_sources_configuration(self, config: SourcesConfiguration) -> SourcesConfiguration:
+        config.id = self._sources_config_counter
+        config.created_at = datetime.utcnow()
+        config.updated_at = datetime.utcnow()
+        self.sources_configurations[self._sources_config_counter] = config
+        self._sources_config_counter += 1
+        return config
+
+    def update_sources_configuration(self, config: SourcesConfiguration) -> SourcesConfiguration:
+        if config.id in self.sources_configurations:
+            config.updated_at = datetime.utcnow()
+            self.sources_configurations[config.id] = config
+        return config
+
+    def get_sources_configuration(self, config_id: int = 1) -> Optional[SourcesConfiguration]:
+        return self.sources_configurations.get(config_id)
+
+    def get_latest_sources_configuration(self) -> Optional[SourcesConfiguration]:
+        if not self.sources_configurations:
+            return None
+        return max(self.sources_configurations.values(), key=lambda x: x.created_at or datetime.min)
+
+    def create_settings_configuration(self, config: SettingsConfiguration) -> SettingsConfiguration:
+        config.id = self._settings_config_counter
+        config.created_at = datetime.utcnow()
+        config.updated_at = datetime.utcnow()
+        self.settings_configurations[self._settings_config_counter] = config
+        self._settings_config_counter += 1
+        return config
+
+    def update_settings_configuration(self, config: SettingsConfiguration) -> SettingsConfiguration:
+        if config.id in self.settings_configurations:
+            config.updated_at = datetime.utcnow()
+            self.settings_configurations[config.id] = config
+        return config
+
+    def get_settings_configuration(self, config_id: int = 1) -> Optional[SettingsConfiguration]:
+        return self.settings_configurations.get(config_id)
+
+    def get_latest_settings_configuration(self) -> Optional[SettingsConfiguration]:
+        if not self.settings_configurations:
+            return None
+        return max(self.settings_configurations.values(), key=lambda x: x.created_at or datetime.min)
 
 db = InMemoryDatabase()

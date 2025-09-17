@@ -73,9 +73,11 @@ const SignalsAlertsTab = () => {
   // Cache state
   const [cache, setCache] = useState<Map<string, CacheEntry>>(new Map());
   const [lastFetchTime, setLastFetchTime] = useState<number | null>(null);
+  const [settings, setSettings] = useState<any>(null);
   
-  // Cache configuration
-  const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+  // Cache configuration - will be updated from settings
+  const DEFAULT_CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
+  const CACHE_DURATION = settings?.signals_cache_duration_seconds ? settings.signals_cache_duration_seconds * 1000 : DEFAULT_CACHE_DURATION;
   const CACHE_KEY_PREFIX = 'signals_cache_';
   const LAST_FETCH_KEY = 'signals_last_fetch';
 
@@ -147,8 +149,23 @@ const SignalsAlertsTab = () => {
     }
   };
 
+  // Load settings configuration
+  const loadSettings = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/settings/configuration`);
+      if (response.ok) {
+        const settingsData = await response.json();
+        setSettings(settingsData);
+        console.log('DEBUG: Loaded settings:', settingsData);
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+    }
+  };
+
   useEffect(() => {
     fetchCompanies();
+    loadSettings();
     
     // Load last fetch time from localStorage on component mount
     try {
@@ -405,7 +422,7 @@ const SignalsAlertsTab = () => {
             {lastFetchTime && (
               <span className="flex items-center gap-1 px-2 py-1 bg-green-100 text-green-800 rounded-full text-xs">
                 <Clock className="h-3 w-3" />
-                Cached {formatTimeAgo(new Date(lastFetchTime).toISOString())}
+                Cached {formatTimeAgo(new Date(lastFetchTime).toISOString())} (cache: {Math.round(CACHE_DURATION / 1000)}s)
               </span>
             )}
           </div>

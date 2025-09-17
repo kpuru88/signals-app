@@ -79,6 +79,34 @@ class AddVendorRequest(BaseModel):
 class RunWatchlistRequest(BaseModel):
     company_ids: Optional[List[int]] = None  # If None, run for all companies
 
+class TearSheet(BaseModel):
+    id: Optional[int] = None
+    company_id: int
+    overview: str
+    funding: Dict[str, Any]
+    hiring_signals: Dict[str, Any]
+    product_updates: List[Dict[str, Any]]
+    key_customers: List[str]
+    citations: List[str]
+    generated_at: datetime
+    created_at: Optional[datetime] = None
+
+class SourcesConfiguration(BaseModel):
+    id: Optional[int] = None
+    allowed_domains: List[str]
+    quality_controls: Dict[str, Any]
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+class SettingsConfiguration(BaseModel):
+    id: Optional[int] = None
+    schedule: Dict[str, Any]
+    api_keys: Dict[str, Any]
+    retention: Dict[str, int]
+    signals_cache_duration_seconds: int = 3600  # Default 1 hour
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
 class TearSheetResponse(BaseModel):
     company: Company
     overview: str

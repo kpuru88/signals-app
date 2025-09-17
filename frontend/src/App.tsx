@@ -5,7 +5,6 @@ import {
   Eye, 
   Building2, 
   Bell, 
-  FileText, 
   Database, 
   Settings
 } from 'lucide-react'
@@ -13,7 +12,6 @@ import {
 import WatchlistTab from './components/WatchlistTab'
 import TearSheetsTab from './components/TearSheetsTab'
 import SignalsAlertsTab from './components/SignalsAlertsTab'
-import ReportsTab from './components/ReportsTab'
 import SourcesTab from './components/SourcesTab'
 import SettingsTab from './components/SettingsTab'
 
@@ -42,7 +40,7 @@ function App() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-6 mb-8">
+          <TabsList className="grid w-full grid-cols-5 mb-8">
             <TabsTrigger value="watchlist" className="flex items-center gap-2">
               <Eye className="h-4 w-4" />
               Watchlist
@@ -54,10 +52,6 @@ function App() {
             <TabsTrigger value="signals" className="flex items-center gap-2">
               <Bell className="h-4 w-4" />
               Signals & Alerts
-            </TabsTrigger>
-            <TabsTrigger value="reports" className="flex items-center gap-2">
-              <FileText className="h-4 w-4" />
-              Reports
             </TabsTrigger>
             <TabsTrigger value="sources" className="flex items-center gap-2">
               <Database className="h-4 w-4" />
@@ -79,10 +73,6 @@ function App() {
 
           <TabsContent value="signals">
             <SignalsAlertsTab />
-          </TabsContent>
-
-          <TabsContent value="reports">
-            <ReportsTab />
           </TabsContent>
 
           <TabsContent value="sources">
