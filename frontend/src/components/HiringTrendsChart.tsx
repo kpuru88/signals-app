@@ -47,7 +47,7 @@ const HiringTrendsChart: React.FC<HiringTrendsChartProps> = ({
               angle: -90, 
               position: 'insideLeft',
               style: { textAnchor: 'middle' },
-              offset: -5
+              offset: 0
             }}
           />
           <Tooltip 
