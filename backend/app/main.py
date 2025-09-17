@@ -726,13 +726,13 @@ async def detect_signals(request: SignalDetectionRequest):
                         content = f"Recent update found for {company.name}"
                     
                     # Create signal with actual content
-                        signal = SignalResponse(
+                    signal = SignalResponse(
                         id=999 + i,
                         type=SignalType.PRODUCT_UPDATE,
                         severity=SignalSeverity.MEDIUM,
-                            vendor=company.name,
+                        vendor=company.name,
                         url=url,
-                            detected_at=datetime.utcnow(),
+                        detected_at=datetime.utcnow(),
                         evidence=[{"snippet": content, "confidence": 0.9}],
                         rationale=content,
                         impacted_areas=["Product", "Pricing"],
@@ -742,10 +742,10 @@ async def detect_signals(request: SignalDetectionRequest):
                         diff_magnitude=0.5,
                         keyword_overlap=0.8,
                         score=0.9,
-                            last_crawled=datetime.utcnow(),
+                        last_crawled=datetime.utcnow(),
                         citations=[url]
-                        )
-                        signals.append(signal)
+                    )
+                    signals.append(signal)
                     print(f"DEBUG: Created signal {i+1} with content: {content[:100]}...")
                     
                 except Exception as e:
