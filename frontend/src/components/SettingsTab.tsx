@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch'
 // import { Textarea } from '@/components/ui/textarea'
 import { Clock, Key } from 'lucide-react'
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
 
 const SettingsTab = () => {
   const [settings, setSettings] = useState({
@@ -28,14 +28,14 @@ const SettingsTab = () => {
     },
     signals_cache_duration_seconds: 3600
   })
-  const [loading, setLoading] = useState(false)
+  const [, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const updateSetting = (section: string, key: string, value: any) => {
     setSettings(prev => ({
       ...prev,
       [section]: {
-        ...prev[section],
+        ...(prev as any)[section],
         [key]: value
       }
     }))

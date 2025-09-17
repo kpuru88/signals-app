@@ -29,7 +29,7 @@ const SignalsTab = () => {
   const [signals, setSignals] = useState<Signal[]>([])
   const [loading, setLoading] = useState(false)
 
-  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
 
   useEffect(() => {
     fetchSignals()

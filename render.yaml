@@ -1,0 +1,21 @@
+services:
+  - type: web
+    name: signals-backend
+    env: python
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: cd backend && python -m uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: EXA_API_KEY
+        sync: false
+    healthCheckPath: /healthz
+
+  - type: web
+    name: signals-frontend
+    env: static
+    plan: free
+    buildCommand: cd frontend && npm install && npm run build
+    staticPublishPath: frontend/dist
+    envVars:
+      - key: VITE_API_BASE
+        value: https://signals-backend.onrender.com

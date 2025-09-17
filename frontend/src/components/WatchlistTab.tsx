@@ -43,6 +43,7 @@ const WatchlistTab = () => {
   const [companyDialogs, setCompanyDialogs] = useState<{[key: number]: boolean}>({})
   const [sourcesConfig, setSourcesConfig] = useState<{allowed_domains: string[]} | null>(null)
 
+  
   // Load sources configuration on component mount
   useEffect(() => {
     loadSourcesConfiguration()
@@ -80,7 +81,7 @@ const WatchlistTab = () => {
     tags: ''
   })
 
-  const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
+  const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000'
 
   useEffect(() => {
     fetchVendors()
