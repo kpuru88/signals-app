@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { 
   AlertTriangle, 
   DollarSign, 
@@ -12,7 +12,6 @@ import {
   Filter,
   RefreshCw,
   Search,
-  Calendar,
   TrendingUp,
   Activity
 } from 'lucide-react';
@@ -71,7 +70,7 @@ const SignalsAlertsTab = () => {
   const [showFilters, setShowFilters] = useState(false);
   
   // Cache state
-  const [cache, setCache] = useState<Map<string, CacheEntry>>(new Map());
+  // const [cache, setCache] = useState<Map<string, CacheEntry>>(new Map());
   const [lastFetchTime, setLastFetchTime] = useState<number | null>(null);
   const [settings, setSettings] = useState<any>(null);
   
@@ -193,7 +192,7 @@ const SignalsAlertsTab = () => {
     }
   }, [companies, selectedCompany, selectedSignalType, selectedSeverity]);
 
-  const fetchSignals = async (forceRefresh: boolean = false) => {
+  const fetchSignals = async (_forceRefresh: boolean = false) => {
     setLoading(true);
     try {
       // Get all companies to detect signals for
@@ -337,7 +336,7 @@ const SignalsAlertsTab = () => {
   };
 
 
-  const getSignalIcon = (type: string) => {
+  const _getSignalIcon = (type: string) => {
     switch (type) {
       case 'pricing_change':
         return <DollarSign className="h-4 w-4" />;
