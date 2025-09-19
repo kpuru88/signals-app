@@ -8,7 +8,7 @@ import { Switch } from '@/components/ui/switch'
 // import { Textarea } from '@/components/ui/textarea'
 import { Clock, Key } from 'lucide-react'
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:8000';
+const API_BASE = (import.meta as any).env.VITE_API_BASE || 'http://localhost:8000';
 
 const SettingsTab = () => {
   const [settings, setSettings] = useState({

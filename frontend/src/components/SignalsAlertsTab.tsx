@@ -375,7 +375,7 @@ const SignalsAlertsTab = () => {
           <button
             onClick={() => fetchSignals(true)}
             disabled={loading}
-            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
             title="Force refresh (bypass cache)"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -393,7 +393,7 @@ const SignalsAlertsTab = () => {
               <select
                 value={selectedCompany || ''}
                 onChange={(e) => setSelectedCompany(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-green-500"
               >
                 <option value="">All Companies</option>
                 {companies.map(company => (
@@ -410,7 +410,7 @@ const SignalsAlertsTab = () => {
       <div className="space-y-4">
         {loading && (
           <div className="flex items-center justify-center py-8">
-            <RefreshCw className="h-6 w-6 animate-spin text-blue-600" />
+            <RefreshCw className="h-6 w-6 animate-spin text-green-600" />
             <span className="ml-2 text-gray-600">Fetching recent signals via Exa API...</span>
           </div>
         )}
@@ -491,7 +491,7 @@ const SignalsAlertsTab = () => {
                 href={signal.url || signal.urls?.[0] || '#'}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center gap-1 text-sm text-blue-600 hover:text-blue-800"
+                className="flex items-center gap-1 text-sm text-green-600 hover:text-green-800"
               >
                 <ExternalLink className="h-3 w-3" />
                 Source
