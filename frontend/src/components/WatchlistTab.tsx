@@ -197,7 +197,14 @@ const WatchlistTab = () => {
   }
 
   const addVendor = async () => {
-    if (!newVendor.name || !newVendor.domains) return
+    if (!newVendor.name.trim()) {
+      alert('Company name is required')
+      return
+    }
+    if (!newVendor.domains.trim()) {
+      alert('At least one domain is required')
+      return
+    }
 
     setLoading(true)
     try {
@@ -207,12 +214,12 @@ const WatchlistTab = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          name: newVendor.name,
-          domains: newVendor.domains.split(',').map(d => d.trim()),
-          include_paths: newVendor.include_paths.split(',').map(p => p.trim()),
-          linkedin_url: newVendor.linkedin_url || null,
-          github_org: newVendor.github_org || null,
-          tags: newVendor.tags ? newVendor.tags.split(',').map(t => t.trim()) : []
+          name: newVendor.name.trim(),
+          domains: newVendor.domains.split(',').map(d => d.trim()).filter(d => d),
+          include_paths: newVendor.include_paths.split(',').map(p => p.trim()).filter(p => p),
+          linkedin_url: newVendor.linkedin_url.trim() || null,
+          github_org: newVendor.github_org.trim() || null,
+          tags: newVendor.tags ? newVendor.tags.split(',').map(t => t.trim()).filter(t => t) : []
         })
       })
 
@@ -227,9 +234,14 @@ const WatchlistTab = () => {
           github_org: '',
           tags: ''
         })
+        alert('Company added successfully!')
+      } else {
+        const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }))
+        alert(`Error adding company: ${errorData.detail || 'Unknown error'}`)
       }
     } catch (error) {
       console.error('Error adding vendor:', error)
+      alert('Network error: Unable to add company. Please check your connection and try again.')
     } finally {
       setLoading(false)
     }
@@ -388,6 +400,8 @@ const WatchlistTab = () => {
                     value={newVendor.name}
                     onChange={(e) => setNewVendor({...newVendor, name: e.target.value})}
                     placeholder="e.g., Acme Corp"
+                    className={!newVendor.name.trim() && newVendor.name !== '' ? 'border-red-500' : ''}
+                    required
                   />
                 </div>
                 <div className="grid gap-2">
@@ -397,6 +411,8 @@ const WatchlistTab = () => {
                     value={newVendor.domains}
                     onChange={(e) => setNewVendor({...newVendor, domains: e.target.value})}
                     placeholder="e.g., acme.com, acme.io"
+                    className={!newVendor.domains.trim() && newVendor.domains !== '' ? 'border-red-500' : ''}
+                    required
                   />
                 </div>
                 <div className="grid gap-2">
@@ -447,8 +463,12 @@ const WatchlistTab = () => {
                 <Button variant="outline" onClick={() => setIsAddDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button onClick={addVendor} disabled={loading}>
-                  Add Company
+                <Button 
+                  onClick={addVendor} 
+                  className="bg-green-600 hover:bg-green-700"
+                  disabled={loading}
+                >
+                  {loading ? 'Adding...' : 'Add Company'}
                 </Button>
               </div>
             </DialogContent>
