@@ -353,7 +353,7 @@ const WatchlistTab = () => {
 
   const getPathColor = (path: string) => {
     if (path.includes('pricing')) return 'bg-green-100 text-green-800'
-    if (path.includes('release') || path.includes('changelog')) return 'bg-blue-100 text-blue-800'
+    if (path.includes('release') || path.includes('changelog')) return 'bg-green-100 text-green-800'
     if (path.includes('security')) return 'bg-red-100 text-red-800'
     return 'bg-gray-100 text-gray-800'
   }
@@ -476,7 +476,7 @@ const WatchlistTab = () => {
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <CardTitle className="flex items-center gap-3">
-                      <Building2 className="h-5 w-5 text-blue-600" />
+                      <Building2 className="h-5 w-5 text-green-600" />
                       {editingCompany === company.id ? (
                         <div className="flex items-center gap-2 flex-1">
                           <Input
@@ -563,8 +563,8 @@ const WatchlistTab = () => {
                         <Clock className="h-4 w-4" />
                         Last run: Never
                       </div>
-                      <Badge variant="outline" className="text-blue-600 border-blue-600">
-                        <div className="w-2 h-2 bg-blue-600 rounded-full mr-2"></div>
+                      <Badge variant="outline" className="text-green-600 border-green-600">
+                        <div className="w-2 h-2 bg-green-600 rounded-full mr-2"></div>
                         READY
                       </Badge>
                     </div>
@@ -637,7 +637,7 @@ const WatchlistTab = () => {
             {/* Summary Stats */}
             <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600">
+                <div className="text-2xl font-bold text-green-600">
                   0
                 </div>
                 <div className="text-sm text-gray-600">Companies Checked</div>
@@ -687,14 +687,14 @@ const WatchlistTab = () => {
                     {result.answer_content && (
                       <div className="mt-4">
                         <h4 className="text-sm font-medium text-gray-700 mb-2">AI Analysis Results:</h4>
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                           <div 
                             className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed prose prose-sm max-w-none"
                             dangerouslySetInnerHTML={{
                               __html: result.answer_content
                                 .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                                 .replace(/\n/g, '<br/>')
-                                .replace(/(https?:\/\/[^\s<>"{}|\\^`[\]]+?)(?=[\s<>"{}|\\^`[\]]|$|\))/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">$1</a>')
+                                .replace(/(https?:\/\/[^\s<>"{}|\\^`[\]]+?)(?=[\s<>"{}|\\^`[\]]|$|\))/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-green-600 hover:text-green-800 underline">$1</a>')
                             }}
                           />
                         </div>
@@ -704,12 +704,12 @@ const WatchlistTab = () => {
                             <h5 className="text-sm font-medium text-gray-700 mb-2">Source URLs:</h5>
                             <div className="space-y-2 max-h-32 overflow-y-auto">
                               {result.citations.map((citation: any, i: number) => (
-                                <div key={i} className="text-xs border-l-2 border-blue-200 pl-2">
+                                <div key={i} className="text-xs border-l-2 border-green-200 pl-2">
                                   <a 
                                     href={typeof citation === 'string' ? citation : citation.url} 
                                     target="_blank" 
                                     rel="noopener noreferrer"
-                                    className="text-blue-600 hover:text-blue-800 underline break-all"
+                                    className="text-green-600 hover:text-green-800 underline break-all"
                                   >
                                     {typeof citation === 'string' ? citation : citation.url}
                                   </a>
@@ -779,7 +779,7 @@ const WatchlistTab = () => {
                 {/* Summary Stats */}
                 <div className="grid grid-cols-3 gap-4 p-4 bg-gray-50 rounded-lg">
                   <div className="text-center">
-                    <div className="text-2xl font-bold text-blue-600">
+                    <div className="text-2xl font-bold text-green-600">
                       {companyResults[company.id].urls_found || 0}
                     </div>
                     <div className="text-sm text-gray-600">URLs Found</div>
@@ -812,14 +812,14 @@ const WatchlistTab = () => {
                 {companyResults[company.id].answer_content && (
                   <div>
                     <h4 className="text-sm font-medium text-gray-700 mb-2">AI Analysis Results:</h4>
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                       <div 
                         className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed prose prose-sm max-w-none"
                         dangerouslySetInnerHTML={{
                           __html: companyResults[company.id].answer_content
                             .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
                             .replace(/\n/g, '<br/>')
-                            .replace(/(https?:\/\/[^\s<>"{}|\\^`[\]]+?)(?=[\s<>"{}|\\^`[\]]|$|\))/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-600 hover:text-blue-800 underline">$1</a>')
+                            .replace(/(https?:\/\/[^\s<>"{}|\\^`[\]]+?)(?=[\s<>"{}|\\^`[\]]|$|\))/g, '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-green-600 hover:text-green-800 underline">$1</a>')
                         }}
                       />
                     </div>
@@ -832,12 +832,12 @@ const WatchlistTab = () => {
                     <h4 className="text-sm font-medium text-gray-700 mb-2">Source URLs:</h4>
                     <div className="space-y-2 max-h-32 overflow-y-auto">
                       {companyResults[company.id].citations.map((citation: any, i: number) => (
-                        <div key={i} className="text-xs border-l-2 border-blue-200 pl-2">
+                        <div key={i} className="text-xs border-l-2 border-green-200 pl-2">
                           <a 
                             href={typeof citation === 'string' ? citation : citation.url} 
                             target="_blank" 
                             rel="noopener noreferrer"
-                            className="text-blue-600 hover:text-blue-800 underline break-all"
+                            className="text-green-600 hover:text-green-800 underline break-all"
                           >
                             {typeof citation === 'string' ? citation : citation.url}
                           </a>

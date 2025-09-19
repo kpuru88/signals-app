@@ -104,13 +104,13 @@ const TearSheetsTab = () => {
                     key={company.id}
                     className={`p-3 rounded-lg border cursor-pointer transition-colors ${
                       selectedCompany?.id === company.id
-                        ? 'border-blue-500 bg-blue-50'
+                        ? 'border-green-500 bg-green-50'
                         : 'border-gray-200 hover:border-gray-300'
                     }`}
                     onClick={() => setSelectedCompany(company)}
                   >
                     <div className="flex items-center gap-2">
-                      <Building2 className="h-4 w-4 text-blue-600" />
+                      <Building2 className="h-4 w-4 text-green-600" />
                       <span className="font-medium">{company.name}</span>
                     </div>
                     <div className="text-sm text-gray-500 mt-1">
@@ -162,7 +162,7 @@ const TearSheetsTab = () => {
                   <div className="flex justify-between items-start">
                     <div>
                       <CardTitle className="flex items-center gap-3">
-                        <Building2 className="h-6 w-6 text-blue-600" />
+                        <Building2 className="h-6 w-6 text-green-600" />
                         {tearSheet.company.name}
                       </CardTitle>
                       <CardDescription className="mt-2">
@@ -206,8 +206,8 @@ const TearSheetsTab = () => {
                       {tearSheet.hiring_signals && typeof tearSheet.hiring_signals === 'object' && !tearSheet.hiring_signals.status ? (
                         <div className="space-y-4">
                           <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-blue-50 p-4 rounded-lg">
-                              <div className="text-2xl font-bold text-blue-600">
+                            <div className="bg-green-50 p-4 rounded-lg">
+                              <div className="text-2xl font-bold text-green-600">
                                 {tearSheet.hiring_signals.current_year_jobs || 0}
                               </div>
                               <div className="text-sm text-gray-600">Jobs in {new Date().getFullYear()}</div>
@@ -224,7 +224,7 @@ const TearSheetsTab = () => {
                           {tearSheet.hiring_signals.departments && (
                             <div className="space-y-4">
                               <div className="flex items-center gap-2 mb-4">
-                                <BarChart3 className="h-5 w-5 text-blue-600" />
+                                <BarChart3 className="h-5 w-5 text-green-600" />
                                 <h4 className="text-lg font-semibold text-gray-900">Jobs by Department</h4>
                               </div>
                               

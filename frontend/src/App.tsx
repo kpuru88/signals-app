@@ -1,90 +1,140 @@
 import { useState } from 'react'
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Badge } from '@/components/ui/badge'
 import { 
-  Eye, 
-  Building2, 
+  LayoutDashboard,
   Bell, 
   Database, 
-  Settings
+  Settings,
+  Eye,
+  FileText,
+  Sprout
 } from 'lucide-react'
 
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarHeader,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarTrigger,
+} from '@/components/ui/sidebar'
+
+import DashboardTab from './components/DashboardTab'
 import WatchlistTab from './components/WatchlistTab'
 import TearSheetsTab from './components/TearSheetsTab'
 import SignalsAlertsTab from './components/SignalsAlertsTab'
 import SourcesTab from './components/SourcesTab'
 import SettingsTab from './components/SettingsTab'
 
+const menuItems = [
+  {
+    id: 'dashboard',
+    title: 'Tableau de bord',
+    icon: LayoutDashboard,
+    component: DashboardTab
+  },
+  {
+    id: 'watchlist',
+    title: 'Surveillance',
+    icon: Eye,
+    component: WatchlistTab
+  },
+  {
+    id: 'tearsheets',
+    title: 'Fiches',
+    icon: FileText,
+    component: TearSheetsTab
+  },
+  {
+    id: 'signals',
+    title: 'Signaux & Alertes',
+    icon: Bell,
+    component: SignalsAlertsTab
+  },
+  {
+    id: 'sources',
+    title: 'Sources',
+    icon: Database,
+    component: SourcesTab
+  },
+  {
+    id: 'settings',
+    title: 'Paramètres',
+    icon: Settings,
+    component: SettingsTab
+  }
+]
+
 function App() {
-  const [activeTab, setActiveTab] = useState('watchlist')
+  const [activeTab, setActiveTab] = useState('dashboard')
+
+  const ActiveComponent = menuItems.find(item => item.id === activeTab)?.component || DashboardTab
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-6">
-            <div className="flex items-center">
-              <Eye className="h-8 w-8 text-blue-600 mr-3" />
-              <h1 className="text-2xl font-bold text-gray-900">Signals</h1>
-              <Badge variant="secondary" className="ml-3">Beta</Badge>
+    <SidebarProvider>
+      <div className="min-h-screen flex w-full">
+        <Sidebar>
+          <SidebarHeader className="border-b border-sidebar-border">
+            <div className="flex items-center gap-3 px-3 py-4">
+              <div className="flex items-center justify-center w-8 h-8 bg-green-600 rounded-lg">
+                <Sprout className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-gray-900">Signals</h1>
+                <Badge variant="secondary" className="text-xs">Beta</Badge>
+              </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <Badge variant="outline" className="text-green-600 border-green-600">
-                <div className="w-2 h-2 bg-green-600 rounded-full mr-2"></div>
-                Live
-              </Badge>
+          </SidebarHeader>
+          
+          <SidebarContent>
+            <SidebarGroup>
+              <SidebarGroupContent>
+                <SidebarMenu>
+                  {menuItems.map((item) => (
+                    <SidebarMenuItem key={item.id}>
+                      <SidebarMenuButton
+                        onClick={() => setActiveTab(item.id)}
+                        isActive={activeTab === item.id}
+                        className="w-full justify-start"
+                      >
+                        <item.icon className="h-4 w-4" />
+                        <span>{item.title}</span>
+                      </SidebarMenuButton>
+                    </SidebarMenuItem>
+                  ))}
+                </SidebarMenu>
+              </SidebarGroupContent>
+            </SidebarGroup>
+          </SidebarContent>
+          
+          <SidebarFooter className="border-t border-sidebar-border">
+            <div className="flex items-center gap-2 px-3 py-2">
+              <div className="w-2 h-2 bg-green-600 rounded-full"></div>
+              <span className="text-sm text-green-600 font-medium">En direct</span>
             </div>
-          </div>
-        </div>
-      </header>
+          </SidebarFooter>
+        </Sidebar>
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-          <TabsList className="grid w-full grid-cols-5 mb-8">
-            <TabsTrigger value="watchlist" className="flex items-center gap-2">
-              <Eye className="h-4 w-4" />
-              Watchlist
-            </TabsTrigger>
-            <TabsTrigger value="tearsheets" className="flex items-center gap-2">
-              <Building2 className="h-4 w-4" />
-              Tear-Sheets
-            </TabsTrigger>
-            <TabsTrigger value="signals" className="flex items-center gap-2">
-              <Bell className="h-4 w-4" />
-              Signals & Alerts
-            </TabsTrigger>
-            <TabsTrigger value="sources" className="flex items-center gap-2">
-              <Database className="h-4 w-4" />
-              Sources
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Settings
-            </TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="watchlist">
-            <WatchlistTab />
-          </TabsContent>
-
-          <TabsContent value="tearsheets">
-            <TearSheetsTab />
-          </TabsContent>
-
-          <TabsContent value="signals">
-            <SignalsAlertsTab />
-          </TabsContent>
-
-          <TabsContent value="sources">
-            <SourcesTab />
-          </TabsContent>
-
-          <TabsContent value="settings">
-            <SettingsTab />
-          </TabsContent>
-        </Tabs>
-      </main>
-    </div>
+        <SidebarInset className="flex-1">
+          <header className="flex h-16 shrink-0 items-center gap-2 border-b border-gray-200 px-4">
+            <SidebarTrigger className="-ml-1" />
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <span>Dernière synchronisation avec les autres modules: 19/09/2025, 2:33:13 PM</span>
+            </div>
+          </header>
+          
+          <main className="flex-1 p-6">
+            <ActiveComponent />
+          </main>
+        </SidebarInset>
+      </div>
+    </SidebarProvider>
   )
 }
 
