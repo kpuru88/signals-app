@@ -6,12 +6,11 @@ import {
   Building2, 
   Bell, 
   Database,
-  AlertTriangle,
   CheckCircle,
-  Clock,
   BarChart3,
   RefreshCw
 } from 'lucide-react'
+import CompanyActivityHeatmap from './CompanyActivityHeatmap'
 
 interface DashboardStats {
   totalCompanies: number
@@ -33,15 +32,6 @@ interface Signal {
   created_at: string
 }
 
-interface Company {
-  id: number
-  name: string
-  domains: string[]
-  linkedin_url?: string
-  github_org?: string
-  tags: string[]
-  created_at: string
-}
 
 const DashboardTab = () => {
   const [stats, setStats] = useState<DashboardStats>({
@@ -50,8 +40,6 @@ const DashboardTab = () => {
     recentAlerts: 0,
     lastUpdate: new Date().toISOString()
   })
-  const [signals, setSignals] = useState<Signal[]>([])
-  const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
 
   const API_BASE = (import.meta as any).env.VITE_API_BASE || 'http://localhost:8000'
@@ -69,7 +57,6 @@ const DashboardTab = () => {
 
       if (vendorsResponse.ok) {
         const vendors = await vendorsResponse.json()
-        setCompanies(vendors)
         setStats(prev => ({
           ...prev,
           totalCompanies: vendors.length,
@@ -79,7 +66,6 @@ const DashboardTab = () => {
 
       if (signalsResponse.ok) {
         const signalsData = await signalsResponse.json()
-        setSignals(signalsData)
         
         // Calculate recent alerts (signals from last 7 days)
         const sevenDaysAgo = new Date()
@@ -210,79 +196,11 @@ const DashboardTab = () => {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bell className="h-5 w-5 text-green-600" />
-              Recent Alerts
-            </CardTitle>
-            <CardDescription>
-              Track monitoring alerts impacting your competitive intelligence
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {loading ? (
-                <div className="text-center text-gray-500 py-4">Loading alerts...</div>
-              ) : signals.length === 0 ? (
-                <div className="text-center text-gray-500 py-4">No recent alerts found</div>
-              ) : (
-                signals.slice(0, 5).map((signal) => {
-                  const company = companies.find(c => c.id === signal.company_id)
-                  const timeAgo = new Date(signal.created_at)
-                  const now = new Date()
-                  const diffInHours = Math.floor((now.getTime() - timeAgo.getTime()) / (1000 * 60 * 60))
-                  
-                  const getSeverityColor = (severity: string) => {
-                    switch (severity.toLowerCase()) {
-                      case 'critical': return 'red'
-                      case 'high': return 'orange'
-                      case 'medium': return 'yellow'
-                      case 'low': return 'green'
-                      default: return 'blue'
-                    }
-                  }
-                  
-                  const severityColor = getSeverityColor(signal.severity)
-                  const colorClasses = {
-                    red: 'border-red-200 bg-red-50 text-red-900',
-                    orange: 'border-orange-200 bg-orange-50 text-orange-900',
-                    yellow: 'border-yellow-200 bg-yellow-50 text-yellow-900',
-                    green: 'border-green-200 bg-green-50 text-green-900',
-                    blue: 'border-blue-200 bg-blue-50 text-blue-900'
-                  }
-                  
-                  return (
-                    <div key={signal.id} className={`flex items-start gap-3 p-3 border rounded-lg ${colorClasses[severityColor as keyof typeof colorClasses]}`}>
-                      <AlertTriangle className={`h-5 w-5 mt-0.5 text-${severityColor}-600`} />
-                      <div className="flex-1">
-                        <div className="font-medium">{signal.title}</div>
-                        <div className="text-sm mt-1 line-clamp-2">
-                          {signal.summary.length > 100 ? `${signal.summary.substring(0, 100)}...` : signal.summary}
-                        </div>
-                        <div className="text-xs mt-2 flex items-center gap-1">
-                          <Clock className="h-3 w-3" />
-                          {diffInHours < 1 ? 'Just now' : 
-                           diffInHours < 24 ? `${diffInHours}h ago` : 
-                           `${Math.floor(diffInHours / 24)}d ago`}
-                          {company && (
-                            <>
-                              <span className="mx-1">•</span>
-                              <span>{company.name}</span>
-                            </>
-                          )}
-                        </div>
-                      </div>
-                      <Badge variant="outline" className={`bg-${severityColor}-100 text-${severityColor}-800 border-${severityColor}-200`}>
-                        {signal.severity}
-                      </Badge>
-                    </div>
-                  )
-                })
-              )}
-            </div>
-          </CardContent>
-        </Card>
+        <CompanyActivityHeatmap 
+          onCompanyClick={(companyId) => {
+            console.log('Navigate to company:', companyId)
+          }}
+        />
 
         <Card>
           <CardHeader>

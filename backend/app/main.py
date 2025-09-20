@@ -14,7 +14,6 @@ from .models import (
 )
 from .database import db
 from .exa_client import get_exa_client
-from .parser import StreamingResponseParser
 
 load_dotenv()
 
@@ -931,3 +930,33 @@ async def save_settings_configuration(config: SettingsConfiguration):
         return db.update_settings_configuration(config)
     else:
         return db.create_settings_configuration(config)
+
+@app.get("/companies/activity")
+async def get_company_activity():
+    """Get activity scores for all companies based on recent signals, tearsheets, and updates"""
+    from datetime import datetime, timedelta
+    
+    companies = db.list_companies()
+    seven_days_ago = datetime.utcnow() - timedelta(days=7)
+    
+    activity_data = []
+    for company in companies:
+        recent_signals = [s for s in db.list_signals(company.id) 
+                        if s.created_at and s.created_at > seven_days_ago]
+        
+        recent_tearsheets = [t for t in db.get_tearsheets_by_company(company.id)
+                           if t.created_at and t.created_at > seven_days_ago]
+        
+        activity_score = len(recent_signals) * 2 + len(recent_tearsheets) * 1
+        
+        activity_data.append({
+            "company_id": company.id,
+            "company_name": company.name,
+            "activity_score": activity_score,
+            "recent_signals": len(recent_signals),
+            "recent_tearsheets": len(recent_tearsheets),
+            "domains": company.domains
+        })
+    
+    activity_data.sort(key=lambda x: x["activity_score"], reverse=True)
+    return activity_data
