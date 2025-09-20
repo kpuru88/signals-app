@@ -721,23 +721,44 @@ const WatchlistTab = () => {
                         
                         {result.citations && result.citations.length > 0 && (
                           <div className="mt-3">
-                            <h5 className="text-sm font-medium text-gray-700 mb-2">Source URLs:</h5>
-                            <div className="space-y-2 max-h-32 overflow-y-auto">
+                            <h5 className="text-sm font-medium text-gray-700 mb-2">Citations</h5>
+                            <div className="space-y-3 max-h-64 overflow-y-auto">
                               {result.citations.map((citation: any, i: number) => (
-                                <div key={i} className="text-xs border-l-2 border-green-200 pl-2">
-                                  <a 
-                                    href={typeof citation === 'string' ? citation : citation.url} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer"
-                                    className="text-green-600 hover:text-green-800 underline break-all"
-                                  >
-                                    {typeof citation === 'string' ? citation : citation.url}
-                                  </a>
-                                  {typeof citation === 'object' && citation.title && (
-                                    <div className="text-gray-500 mt-1 truncate">
-                                      {citation.title}
+                                <div key={i} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      {typeof citation === 'object' && citation.title && (
+                                        <div className="font-medium text-sm text-gray-900 mb-1 truncate">
+                                          {citation.title}
+                                        </div>
+                                      )}
+                                      {typeof citation === 'object' && citation.snippet && (
+                                        <div className="text-sm text-gray-600 mb-2">
+                                          {citation.snippet}
+                                        </div>
+                                      )}
+                                      {typeof citation === 'object' && citation.text && (
+                                        <div className="text-xs text-gray-500 line-clamp-3">
+                                          {citation.text}
+                                        </div>
+                                      )}
+                                      {typeof citation === 'string' && (
+                                        <div className="text-sm text-gray-600">
+                                          {citation}
+                                        </div>
+                                      )}
                                     </div>
-                                  )}
+                                    {typeof citation === 'object' && citation.url && (
+                                      <a 
+                                        href={citation.url} 
+                                        target="_blank" 
+                                        rel="noopener noreferrer"
+                                        className="text-green-600 hover:text-green-800 underline text-xs whitespace-nowrap flex-shrink-0"
+                                      >
+                                        View Source
+                                      </a>
+                                    )}
+                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -846,26 +867,47 @@ const WatchlistTab = () => {
                   </div>
                 )}
 
-                {/* Source URLs */}
+                {/* Citations */}
                 {companyResults[company.id].citations && companyResults[company.id].citations.length > 0 && (
                   <div>
-                    <h4 className="text-sm font-medium text-gray-700 mb-2">Source URLs:</h4>
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Citations</h4>
+                    <div className="space-y-3 max-h-64 overflow-y-auto">
                       {companyResults[company.id].citations.map((citation: any, i: number) => (
-                        <div key={i} className="text-xs border-l-2 border-green-200 pl-2">
-                          <a 
-                            href={typeof citation === 'string' ? citation : citation.url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            className="text-green-600 hover:text-green-800 underline break-all"
-                          >
-                            {typeof citation === 'string' ? citation : citation.url}
-                          </a>
-                          {typeof citation === 'object' && citation.title && (
-                            <div className="text-gray-500 mt-1 truncate">
-                              {citation.title}
+                        <div key={i} className="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                          <div className="flex items-start justify-between gap-2">
+                            <div className="flex-1 min-w-0">
+                              {typeof citation === 'object' && citation.title && (
+                                <div className="font-medium text-sm text-gray-900 mb-1 truncate">
+                                  {citation.title}
+                                </div>
+                              )}
+                              {typeof citation === 'object' && citation.snippet && (
+                                <div className="text-sm text-gray-600 mb-2">
+                                  {citation.snippet}
+                                </div>
+                              )}
+                              {typeof citation === 'object' && citation.text && (
+                                <div className="text-xs text-gray-500 line-clamp-3">
+                                  {citation.text}
+                                </div>
+                              )}
+                              {typeof citation === 'string' && (
+                                <div className="text-sm text-gray-600">
+                                  {citation}
+                                </div>
+                              )}
                             </div>
-                          )}
+                            {typeof citation === 'object' && citation.url && (
+                              <a 
+                                href={citation.url} 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="text-green-600 hover:text-green-800 underline text-xs whitespace-nowrap flex-shrink-0"
+                              >
+                                View Source
+                              </a>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>

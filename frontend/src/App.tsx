@@ -35,7 +35,7 @@ import SettingsTab from './components/SettingsTab'
 const menuItems = [
   {
     id: 'dashboard',
-    title: 'Tableau de bord',
+    title: 'Dashboard',
     icon: LayoutDashboard,
     component: DashboardTab
   },
@@ -65,7 +65,7 @@ const menuItems = [
   },
   {
     id: 'settings',
-    title: 'Paramètres',
+    title: 'Settings',
     icon: Settings,
     component: SettingsTab
   }
@@ -125,7 +125,7 @@ function App() {
           <header className="flex h-16 shrink-0 items-center gap-2 border-b border-gray-200 px-4">
             <SidebarTrigger className="-ml-1" />
             <div className="flex items-center gap-2 text-sm text-gray-600">
-              <span>Dernière synchronisation avec les autres modules: 19/09/2025, 2:33:13 PM</span>
+              <span>Last synchronization with other modules: 19/09/2025, 2:33:13 PM</span>
             </div>
           </header>
           

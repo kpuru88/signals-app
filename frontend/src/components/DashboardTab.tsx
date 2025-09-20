@@ -9,7 +9,8 @@ import {
   AlertTriangle,
   CheckCircle,
   Clock,
-  BarChart3
+  BarChart3,
+  RefreshCw
 } from 'lucide-react'
 
 interface DashboardStats {
@@ -19,6 +20,29 @@ interface DashboardStats {
   lastUpdate: string
 }
 
+interface Signal {
+  id: number
+  company_id: number
+  type: string
+  title: string
+  summary: string
+  severity: string
+  confidence: number
+  urls: string[]
+  citations?: string[]
+  created_at: string
+}
+
+interface Company {
+  id: number
+  name: string
+  domains: string[]
+  linkedin_url?: string
+  github_org?: string
+  tags: string[]
+  created_at: string
+}
+
 const DashboardTab = () => {
   const [stats, setStats] = useState<DashboardStats>({
     totalCompanies: 0,
@@ -26,6 +50,8 @@ const DashboardTab = () => {
     recentAlerts: 0,
     lastUpdate: new Date().toISOString()
   })
+  const [signals, setSignals] = useState<Signal[]>([])
+  const [companies, setCompanies] = useState<Company[]>([])
   const [loading, setLoading] = useState(true)
 
   const API_BASE = (import.meta as any).env.VITE_API_BASE || 'http://localhost:8000'
@@ -36,18 +62,38 @@ const DashboardTab = () => {
 
   const fetchDashboardStats = async () => {
     try {
-      const [vendorsResponse] = await Promise.all([
-        fetch(`${API_BASE}/vendors`)
+      const [vendorsResponse, signalsResponse] = await Promise.all([
+        fetch(`${API_BASE}/vendors`),
+        fetch(`${API_BASE}/signals`)
       ])
 
       if (vendorsResponse.ok) {
         const vendors = await vendorsResponse.json()
-        setStats({
+        setCompanies(vendors)
+        setStats(prev => ({
+          ...prev,
           totalCompanies: vendors.length,
-          totalSignals: vendors.length * 3,
-          recentAlerts: Math.floor(vendors.length * 0.3),
           lastUpdate: new Date().toISOString()
-        })
+        }))
+      }
+
+      if (signalsResponse.ok) {
+        const signalsData = await signalsResponse.json()
+        setSignals(signalsData)
+        
+        // Calculate recent alerts (signals from last 7 days)
+        const sevenDaysAgo = new Date()
+        sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
+        
+        const recentSignals = signalsData.filter((signal: Signal) => 
+          new Date(signal.created_at) > sevenDaysAgo
+        )
+        
+        setStats(prev => ({
+          ...prev,
+          totalSignals: signalsData.length,
+          recentAlerts: recentSignals.length
+        }))
       }
     } catch (error) {
       console.error('Error fetching dashboard stats:', error)
@@ -70,13 +116,21 @@ const DashboardTab = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-3xl font-bold text-gray-900">Tableau de Bord</h2>
-          <p className="text-gray-600 mt-2">Voici un aperçu de votre surveillance concurrentielle</p>
+          <h2 className="text-3xl font-bold text-gray-900">Dashboard</h2>
+          <p className="text-gray-600 mt-2">Here's an overview of your competitive intelligence monitoring</p>
         </div>
         <div className="flex items-center space-x-4">
+          <button
+            onClick={fetchDashboardStats}
+            disabled={loading}
+            className="flex items-center gap-2 px-3 py-2 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
           <Badge variant="outline" className="text-green-600 border-green-600">
             <div className="w-2 h-2 bg-green-600 rounded-full mr-2"></div>
-            En direct
+            Live
           </Badge>
         </div>
       </div>
@@ -85,7 +139,7 @@ const DashboardTab = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">
-              Entreprises surveillées
+              Monitored Companies
             </CardTitle>
             <Building2 className="h-4 w-4 text-green-600" />
           </CardHeader>
@@ -103,7 +157,7 @@ const DashboardTab = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">
-              Signaux détectés
+              Signals Detected
             </CardTitle>
             <BarChart3 className="h-4 w-4 text-green-600" />
           </CardHeader>
@@ -121,7 +175,7 @@ const DashboardTab = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium text-gray-600">
-              Alertes récentes
+              Recent Alerts
             </CardTitle>
             <Bell className="h-4 w-4 text-green-600" />
           </CardHeader>
@@ -131,7 +185,7 @@ const DashboardTab = () => {
             </div>
             <div className="flex items-center text-xs text-green-600 mt-1">
               <CheckCircle className="h-3 w-3 mr-1" />
-              Récent
+              Recent
             </div>
           </CardContent>
         </Card>
@@ -160,64 +214,72 @@ const DashboardTab = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Bell className="h-5 w-5 text-green-600" />
-              Alertes Récentes
+              Recent Alerts
             </CardTitle>
             <CardDescription>
-              Suivez les alertes de surveillance impactant votre veille concurrentielle
+              Track monitoring alerts impacting your competitive intelligence
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              <div className="flex items-start gap-3 p-3 border border-red-200 bg-red-50 rounded-lg">
-                <AlertTriangle className="h-5 w-5 text-red-600 mt-0.5" />
-                <div className="flex-1">
-                  <div className="font-medium text-red-900">Changement de prix détecté</div>
-                  <div className="text-sm text-red-700 mt-1">
-                    Modification tarifaire importante chez un concurrent
-                  </div>
-                  <div className="text-xs text-red-600 mt-2 flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    Il y a 2 heures
-                  </div>
-                </div>
-                <Badge variant="outline" className="bg-red-100 text-red-800 border-red-200">
-                  Critique
-                </Badge>
-              </div>
-
-              <div className="flex items-start gap-3 p-3 border border-yellow-200 bg-yellow-50 rounded-lg">
-                <AlertTriangle className="h-5 w-5 text-yellow-600 mt-0.5" />
-                <div className="flex-1">
-                  <div className="font-medium text-yellow-900">Nouvelle fonctionnalité</div>
-                  <div className="text-sm text-yellow-700 mt-1">
-                    Lancement produit détecté via les notes de version
-                  </div>
-                  <div className="text-xs text-yellow-600 mt-2 flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    Il y a 4 heures
-                  </div>
-                </div>
-                <Badge variant="outline" className="bg-yellow-100 text-yellow-800 border-yellow-200">
-                  Modéré
-                </Badge>
-              </div>
-
-              <div className="flex items-start gap-3 p-3 border border-green-200 bg-green-50 rounded-lg">
-                <CheckCircle className="h-5 w-5 text-green-600 mt-0.5" />
-                <div className="flex-1">
-                  <div className="font-medium text-green-900">Mise à jour de sécurité</div>
-                  <div className="text-sm text-green-700 mt-1">
-                    Correctif de sécurité publié par un fournisseur
-                  </div>
-                  <div className="text-xs text-green-600 mt-2 flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    Il y a 6 heures
-                  </div>
-                </div>
-                <Badge variant="outline" className="bg-green-100 text-green-800 border-green-200">
-                  Info
-                </Badge>
-              </div>
+              {loading ? (
+                <div className="text-center text-gray-500 py-4">Loading alerts...</div>
+              ) : signals.length === 0 ? (
+                <div className="text-center text-gray-500 py-4">No recent alerts found</div>
+              ) : (
+                signals.slice(0, 5).map((signal) => {
+                  const company = companies.find(c => c.id === signal.company_id)
+                  const timeAgo = new Date(signal.created_at)
+                  const now = new Date()
+                  const diffInHours = Math.floor((now.getTime() - timeAgo.getTime()) / (1000 * 60 * 60))
+                  
+                  const getSeverityColor = (severity: string) => {
+                    switch (severity.toLowerCase()) {
+                      case 'critical': return 'red'
+                      case 'high': return 'orange'
+                      case 'medium': return 'yellow'
+                      case 'low': return 'green'
+                      default: return 'blue'
+                    }
+                  }
+                  
+                  const severityColor = getSeverityColor(signal.severity)
+                  const colorClasses = {
+                    red: 'border-red-200 bg-red-50 text-red-900',
+                    orange: 'border-orange-200 bg-orange-50 text-orange-900',
+                    yellow: 'border-yellow-200 bg-yellow-50 text-yellow-900',
+                    green: 'border-green-200 bg-green-50 text-green-900',
+                    blue: 'border-blue-200 bg-blue-50 text-blue-900'
+                  }
+                  
+                  return (
+                    <div key={signal.id} className={`flex items-start gap-3 p-3 border rounded-lg ${colorClasses[severityColor as keyof typeof colorClasses]}`}>
+                      <AlertTriangle className={`h-5 w-5 mt-0.5 text-${severityColor}-600`} />
+                      <div className="flex-1">
+                        <div className="font-medium">{signal.title}</div>
+                        <div className="text-sm mt-1 line-clamp-2">
+                          {signal.summary.length > 100 ? `${signal.summary.substring(0, 100)}...` : signal.summary}
+                        </div>
+                        <div className="text-xs mt-2 flex items-center gap-1">
+                          <Clock className="h-3 w-3" />
+                          {diffInHours < 1 ? 'Just now' : 
+                           diffInHours < 24 ? `${diffInHours}h ago` : 
+                           `${Math.floor(diffInHours / 24)}d ago`}
+                          {company && (
+                            <>
+                              <span className="mx-1">•</span>
+                              <span>{company.name}</span>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      <Badge variant="outline" className={`bg-${severityColor}-100 text-${severityColor}-800 border-${severityColor}-200`}>
+                        {signal.severity}
+                      </Badge>
+                    </div>
+                  )
+                })
+              )}
             </div>
           </CardContent>
         </Card>
@@ -226,46 +288,46 @@ const DashboardTab = () => {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <BarChart3 className="h-5 w-5 text-green-600" />
-              Aperçu des Statistiques
+              Statistics Overview
             </CardTitle>
             <CardDescription>
-              Gérez, organisez et optimisez toute votre veille concurrentielle
+              Manage, organize and optimize all your competitive intelligence
             </CardDescription>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
               <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                 <div>
-                  <div className="font-medium text-gray-900">Surveillance totale</div>
-                  <div className="text-sm text-gray-600">Entreprises actives</div>
+                  <div className="font-medium text-gray-900">Total monitoring</div>
+                  <div className="text-sm text-gray-600">Active companies</div>
                 </div>
                 <div className="text-right">
                   <div className="text-2xl font-bold text-green-600">{stats.totalCompanies}</div>
-                  <div className="text-xs text-gray-500">entreprises</div>
+                  <div className="text-xs text-gray-500">companies</div>
                 </div>
               </div>
 
               <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                 <div>
-                  <div className="font-medium text-gray-900">Signaux actifs</div>
-                  <div className="text-sm text-gray-600">Détections récentes</div>
+                  <div className="font-medium text-gray-900">Active signals</div>
+                  <div className="text-sm text-gray-600">Recent detections</div>
                 </div>
                 <div className="text-right">
                   <div className="text-2xl font-bold text-green-600">{stats.totalSignals}</div>
-                  <div className="text-xs text-gray-500">signaux</div>
+                  <div className="text-xs text-gray-500">signals</div>
                 </div>
               </div>
 
               <div className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                 <div>
-                  <div className="font-medium text-gray-900">Dernière synchronisation</div>
-                  <div className="text-sm text-gray-600">Mise à jour automatique</div>
+                  <div className="font-medium text-gray-900">Last synchronization</div>
+                  <div className="text-sm text-gray-600">Automatic update</div>
                 </div>
                 <div className="text-right">
                   <div className="text-sm font-medium text-green-600">
                     {formatDate(stats.lastUpdate)}
                   </div>
-                  <div className="text-xs text-gray-500">dernière sync</div>
+                  <div className="text-xs text-gray-500">last sync</div>
                 </div>
               </div>
             </div>

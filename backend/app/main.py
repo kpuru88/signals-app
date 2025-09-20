@@ -14,6 +14,7 @@ from .models import (
 )
 from .database import db
 from .exa_client import get_exa_client
+from .parser import StreamingResponseParser
 
 load_dotenv()
 
@@ -112,19 +113,19 @@ async def run_watchlist(request: RunWatchlistRequest = None):
                     queries.append(f"{company.name} changelog release notes")
                 if '/security' in watch.include_paths:
                     queries.append(f"{company.name} security updates")
+                if '/blog' in watch.include_paths: 
+                    queries.append(f"{company.name} blogs")
                 
-                # Search for recent updates in the last month
-                from datetime import datetime, timedelta
-                last_month = datetime.utcnow() - timedelta(days=30)
-                start_date = last_month.isoformat()
-                
-                print(f"DEBUG: Searching for {company.name} updates since {start_date}")
+                # Search for recent updates and developments
+                print(f"DEBUG: Searching for {company.name} updates and developments")
                 
                 # Search for recent updates
                 search_queries = [
-                    f"{company.name} new features product updates",
-                    f"{company.name} pricing changes updates",
-                    f"{company.name} discounts promotions offers"
+                    f"{company.name} new features product updates announcements",
+                    f"{company.name} pricing changes updates plans",
+                    f"{company.name} funding rounds partnerships",
+                    f"{company.name} technology updates platform improvements",
+                    f"{company.name} blogs articles news"
                 ]
                 
                 all_urls = []
@@ -135,7 +136,6 @@ async def run_watchlist(request: RunWatchlistRequest = None):
                         search_result = await exa.search(
                             query=query,
                             include_domains=include_domains,
-                            start_published_date=start_date,
                             num_results=10
                         )
                         print(f"DEBUG: Search result for query '{query}': {search_result}")
@@ -156,18 +156,19 @@ async def run_watchlist(request: RunWatchlistRequest = None):
                     try:
                         # Use Exa answer API to extract specific information
                         answer_query = f"""
-                        Analyze the following {company.name} content and extract:
-                        1. New product features launched in the last month
-                        2. Pricing changes or updates in the last month  
-                        3. Any discounts, promotions, or special offers in the last month
+                        Analyze the following {company.name} content and extract recent updates and developments:
+                        1. New product features, launches, or announcements
+                        2. Pricing changes, updates, or new plans
+                        3. Funding rounds, partnerships, or business developments
+                        4. Technology updates or platform improvements
                         
                         For each finding, provide:
-                        - Clear description of what changed
+                        - Clear description of what changed or was announced
                         - Date or timeframe if mentioned
-                        - Impact or significance
+                        - Impact or significance for users/customers
                         - Source URL
                         
-                        Focus only on changes from the last 30 days.
+                        Focus on developments in the last 10 days
                         """
                         
                         print(f"DEBUG: Getting answer for {len(all_urls)} URLs")
@@ -178,24 +179,54 @@ async def run_watchlist(request: RunWatchlistRequest = None):
                         )
                         
                         print(f"DEBUG: Answer result: {answer_result}")
+                        answer = answer_result.get("answer", "")
                         
-                        # Process the answer and create signals
-                        if answer_result.get("answer"):
-                            answer_text = answer_result["answer"]
-                            citations = answer_result.get("citations", [])
-                            
-                            # Create a comprehensive signal with all findings
-                            signal = Signal(
-                                company_id=company.id,
-                                type=SignalType.PRODUCT_UPDATE,
-                                title=f"Recent Updates for {company.name} (Last 30 Days)",
-                                summary=answer_text,
-                                severity=SignalSeverity.MEDIUM,
-                                confidence=0.8,
-                                urls=citations
-                            )
-                            db.create_signal(signal)
-                            print(f"DEBUG: Created signal for {company.name} with {len(citations)} citations")
+                        # Ensure answer is a string before parsing
+                        if not isinstance(answer, str):
+                            print(f"DEBUG: Answer is not a string, type: {type(answer)}, value: {answer}")
+                            answer = str(answer) if answer is not None else ""
+                        
+                        # Process the answer_result directly - it's already a dict, not streaming JSON
+                        result = {
+                            'content': answer,
+                            'choices': [],
+                            'citations': answer_result.get('citations', []),
+                            'metadata': {
+                                'cost_dollars': answer_result.get('costDollars', {}),
+                                'request_id': answer_result.get('requestId', '')
+                            },
+                            'summary': {
+                                'total_choices': 0,
+                                'total_citations': len(answer_result.get('citations', [])),
+                                'content_length': len(answer),
+                                'has_finish_reason': True
+                            }
+                        }
+                        
+                        # Write result to file for debugging
+                        # Extract URLs from citations for the signal
+                        citation_urls = []
+                        citation_snippets = []
+                        if result.get('citations'):
+                            citation_urls = [citation.get('url', '') for citation in result['citations'] if citation.get('url')]
+                            citation_snippets = [citation.get('snippet', '') for citation in result['citations'] if citation.get('snippet')]
+                        
+                        # Use all_urls as fallback if no citation URLs
+                        if not citation_urls:
+                            citation_urls = all_urls[:5]
+                        
+                        signal = Signal(
+                            company_id=company.id,
+                            type=SignalType.PRODUCT_UPDATE,
+                            title=f"Recent Updates for {company.name}",
+                            summary=result.get('content', ''),
+                            severity=SignalSeverity.MEDIUM,
+                            confidence=0.8,
+                            urls=citation_urls[:5],  # Limit to top 5 URLs for the signal
+                            citations=citation_snippets[:5]  # Include snippets as citations
+                        )
+                        db.create_signal(signal)
+                        print(f"DEBUG: Created signal for {company.name} with {len(citation_urls)} URLs")
                         
                     except Exception as e:
                         print(f"DEBUG: Error getting answer: {str(e)}")
@@ -206,9 +237,27 @@ async def run_watchlist(request: RunWatchlistRequest = None):
                 
                 watch.last_run_at = datetime.utcnow()
                 
-                # Store answer content for frontend display
+                # Store comprehensive data for frontend display
                 answer_content = answer_result.get("answer", "") if answer_result else ""
-                citations = answer_result.get("citations", []) if answer_result else []
+                
+                # Create comprehensive citations with all extracted data
+                comprehensive_citations = []
+                if answer_result and answer_result.get("citations"):
+                    for citation in answer_result["citations"][:5]:  # Top 5 sources
+                        if isinstance(citation, dict):
+                            # Extract all available fields
+                            citation_info = {
+                                'title': citation.get('title', 'No title'),
+                                'url': citation.get('url', citation.get('id', '')),
+                                'publishedDate': citation.get('publishedDate', ''),
+                                'author': citation.get('author', ''),
+                                'snippet': citation.get('snippet', ''),
+                                'text': citation.get('text', '')[:500] if citation.get('text') else '',  # Limit text length
+                                'image': citation.get('image', ''),
+                                'favicon': citation.get('favicon', ''),
+                                'score': citation.get('score', 0)
+                            }
+                            comprehensive_citations.append(citation_info)
                 
                 results.append({
                     "company": company.name,
@@ -216,7 +265,7 @@ async def run_watchlist(request: RunWatchlistRequest = None):
                     "urls_found": len(all_urls),
                     "signals_created": 1 if all_urls else 0,
                     "answer_content": answer_content,
-                    "citations": citations
+                    "citations": comprehensive_citations
                 })
         
         return {"message": "Watchlist run completed", "results": results}

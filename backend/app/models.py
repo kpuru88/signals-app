@@ -58,6 +58,7 @@ class Signal(BaseModel):
     severity: SignalSeverity
     confidence: float
     urls: List[str]
+    citations: Optional[List[str]] = None
     created_at: Optional[datetime] = None
 
 class Report(BaseModel):

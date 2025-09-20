@@ -22,6 +22,7 @@ interface Signal {
   severity: string
   confidence: number
   urls: string[]
+  citations?: string[]
   created_at: string
 }
 
@@ -39,69 +40,20 @@ const SignalsTab = () => {
     setLoading(true)
     console.log('DEBUG: Starting fetchSignals, API_BASE:', API_BASE)
     try {
-      // First get all companies to detect signals for
-      console.log('DEBUG: Fetching companies from:', `${API_BASE}/vendors`)
-      const companiesResponse = await fetch(`${API_BASE}/vendors`)
-      console.log('DEBUG: Companies response status:', companiesResponse.status)
-      if (!companiesResponse.ok) {
-        throw new Error('Failed to fetch companies')
-      }
-      const companies = await companiesResponse.json()
-      console.log('DEBUG: Companies fetched:', companies)
+      console.log('DEBUG: Fetching signals from:', `${API_BASE}/signals`)
+      const signalsResponse = await fetch(`${API_BASE}/signals`)
+      console.log('DEBUG: Signals response status:', signalsResponse.status)
       
-      // Fetch recent signals using Exa API for each company
-      const allSignals = []
-      for (const company of companies) {
-        try {
-          console.log(`DEBUG: Fetching signals for company: ${company.name} (ID: ${company.id})`)
-          const requestBody = {
-            company_id: company.id,
-            signal_types: ['pricing_change', 'product_update', 'security_update'],
-            include_paths: ['/pricing', '/release-notes', '/changelog', '/security'],
-            start_date: new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString(), // Last 7 days
-            end_date: new Date().toISOString(),
-            use_livecrawl: false
-          }
-          console.log('DEBUG: Request body:', requestBody)
-          
-          const signalsResponse = await fetch(`${API_BASE}/signals/detect`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(requestBody)
-          })
-          
-          console.log(`DEBUG: Signals response status for ${company.name}:`, signalsResponse.status)
-          
-          if (signalsResponse.ok) {
-            const signals = await signalsResponse.json()
-            console.log(`DEBUG: Signals received for ${company.name}:`, signals)
-            // Convert SignalResponse to Signal format for frontend compatibility
-            const convertedSignals = signals.map((signal: any) => ({
-              id: signal.id || Math.random(),
-              company_id: company.id,
-              type: signal.type,
-              title: signal.rationale || `${signal.type.replace('_', ' ')} - ${signal.vendor}`,
-              summary: signal.rationale,
-              severity: signal.severity,
-              confidence: signal.confidence,
-              urls: signal.citations || [signal.url],
-              created_at: signal.detected_at
-            }))
-            allSignals.push(...convertedSignals)
-          } else {
-            console.error(`DEBUG: Failed to fetch signals for ${company.name}:`, signalsResponse.status, signalsResponse.statusText)
-          }
-        } catch (error) {
-          console.error(`Error fetching signals for ${company.name}:`, error)
-        }
+      if (!signalsResponse.ok) {
+        throw new Error('Failed to fetch signals')
       }
+      
+      const signals = await signalsResponse.json()
+      console.log('DEBUG: Signals fetched:', signals)
       
       // Sort signals by date (most recent first)
-      allSignals.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      console.log('DEBUG: Final signals array:', allSignals)
-      setSignals(allSignals)
+      signals.sort((a: Signal, b: Signal) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      setSignals(signals)
     } catch (error) {
       console.error('Error fetching signals:', error)
     } finally {
@@ -226,6 +178,19 @@ const SignalsTab = () => {
               </CardHeader>
               <CardContent>
                 <p className="text-gray-700 mb-4">{signal.summary}</p>
+                
+                {signal.citations && signal.citations.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="text-sm font-medium text-gray-700 mb-2">Citations</h4>
+                    <div className="space-y-2">
+                      {signal.citations.map((citation, index) => (
+                        <div key={index} className="bg-gray-50 p-3 rounded-lg border">
+                          <p className="text-sm text-gray-600">{citation}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
                 {signal.urls.length > 0 && (
                   <div>
