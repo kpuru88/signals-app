@@ -14,7 +14,6 @@ from .models import (
 )
 from .database import db
 from .exa_client import get_exa_client
-from .parser import StreamingResponseParser
 
 load_dotenv()
 
