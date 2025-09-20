@@ -933,30 +933,121 @@ async def save_settings_configuration(config: SettingsConfiguration):
 
 @app.get("/companies/activity")
 async def get_company_activity():
-    """Get activity scores for all companies based on recent signals, tearsheets, and updates"""
+    """Get detailed activity scores for all companies using Exa API data"""
     from datetime import datetime, timedelta
+    import asyncio
     
     companies = db.list_companies()
+    if not companies:
+        return []
+    
     seven_days_ago = datetime.utcnow() - timedelta(days=7)
     
-    activity_data = []
-    for company in companies:
-        recent_signals = [s for s in db.list_signals(company.id) 
-                        if s.created_at and s.created_at > seven_days_ago]
+    try:
+        exa = get_exa_client()
+    except Exception as e:
+        print(f"Warning: Could not initialize Exa client: {e}")
+        activity_data = []
+        for company in companies:
+            recent_signals = [s for s in db.list_signals(company.id) 
+                            if s.created_at and s.created_at > seven_days_ago]
+            
+            recent_tearsheets = [t for t in db.get_tearsheets_by_company(company.id)
+                               if t.created_at and t.created_at > seven_days_ago]
+            
+            activity_data.append({
+                "company_id": company.id,
+                "company_name": company.name,
+                "product_updates": len([s for s in recent_signals if s.type == "product_update"]),
+                "pricing_changes": len([s for s in recent_signals if s.type == "pricing_change"]),
+                "news_articles": len(recent_signals),
+                "funding_news": len([s for s in recent_signals if s.type == "funding"]),
+                "total_score": len(recent_signals) * 2 + len(recent_tearsheets),
+                "domains": company.domains
+            })
         
-        recent_tearsheets = [t for t in db.get_tearsheets_by_company(company.id)
-                           if t.created_at and t.created_at > seven_days_ago]
-        
-        activity_score = len(recent_signals) * 2 + len(recent_tearsheets) * 1
-        
-        activity_data.append({
-            "company_id": company.id,
-            "company_name": company.name,
-            "activity_score": activity_score,
-            "recent_signals": len(recent_signals),
-            "recent_tearsheets": len(recent_tearsheets),
-            "domains": company.domains
-        })
+        activity_data.sort(key=lambda x: x["total_score"], reverse=True)
+        return activity_data
     
-    activity_data.sort(key=lambda x: x["activity_score"], reverse=True)
+    async def get_company_exa_data(company):
+        try:
+            # Search for recent company updates across different categories
+            domain = company.domains[0] if company.domains else company.name.lower().replace(" ", "")
+            
+            product_search = await exa.search(
+                query=f"{company.name} product updates new features releases",
+                include_domains=[domain] if domain else None,
+                start_published_date=seven_days_ago.isoformat(),
+                num_results=5
+            )
+            
+            pricing_search = await exa.search(
+                query=f"{company.name} pricing price changes cost",
+                include_domains=[domain] if domain else None,
+                start_published_date=seven_days_ago.isoformat(),
+                num_results=5
+            )
+            
+            news_search = await exa.search(
+                query=f"{company.name} news announcement",
+                start_published_date=seven_days_ago.isoformat(),
+                num_results=10
+            )
+            
+            funding_search = await exa.search(
+                query=f"{company.name} funding investment round raised",
+                start_published_date=seven_days_ago.isoformat(),
+                num_results=5
+            )
+            
+            recent_signals = [s for s in db.list_signals(company.id) 
+                            if s.created_at and s.created_at > seven_days_ago]
+            
+            recent_tearsheets = [t for t in db.get_tearsheets_by_company(company.id)
+                               if t.created_at and t.created_at > seven_days_ago]
+            
+            product_score = min(5, len(product_search.get("results", [])) + 
+                              len([s for s in recent_signals if s.type == "product_update"]))
+            
+            pricing_score = min(5, len(pricing_search.get("results", [])) + 
+                              len([s for s in recent_signals if s.type == "pricing_change"]))
+            
+            news_score = min(5, len(news_search.get("results", [])))
+            
+            funding_score = min(5, len(funding_search.get("results", [])) + 
+                              len([s for s in recent_signals if s.type == "funding"]))
+            
+            total_score = product_score + pricing_score + news_score + funding_score
+            
+            return {
+                "company_id": company.id,
+                "company_name": company.name,
+                "product_updates": product_score,
+                "pricing_changes": pricing_score,
+                "news_articles": news_score,
+                "funding_news": funding_score,
+                "total_score": total_score,
+                "domains": company.domains
+            }
+            
+        except Exception as e:
+            print(f"Error fetching Exa data for {company.name}: {e}")
+            recent_signals = [s for s in db.list_signals(company.id) 
+                            if s.created_at and s.created_at > seven_days_ago]
+            
+            return {
+                "company_id": company.id,
+                "company_name": company.name,
+                "product_updates": len([s for s in recent_signals if s.type == "product_update"]),
+                "pricing_changes": len([s for s in recent_signals if s.type == "pricing_change"]),
+                "news_articles": len(recent_signals),
+                "funding_news": len([s for s in recent_signals if s.type == "funding"]),
+                "total_score": len(recent_signals) * 2,
+                "domains": company.domains
+            }
+    
+    # Process all companies concurrently
+    activity_data = await asyncio.gather(*[get_company_exa_data(company) for company in companies])
+    
+    activity_data.sort(key=lambda x: x["total_score"], reverse=True)
     return activity_data
