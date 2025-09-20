@@ -16,8 +16,8 @@ const HiringTrendsChart: React.FC<HiringTrendsChartProps> = ({
     jobs: count
   }))
 
-  // Color palette for different departments
-  const colors = ['#3B82F6', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6']
+  // Color palette for different departments - green and red/coral to match screenshot
+  const colors = ['#4ADE80', '#F87171']
 
   return (
     <div className="w-full h-80">
