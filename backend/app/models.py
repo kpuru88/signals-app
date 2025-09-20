@@ -22,6 +22,8 @@ class Company(BaseModel):
     linkedin_url: Optional[str] = None
     github_org: Optional[str] = None
     tags: List[str] = []
+    employees: Optional[int] = None
+    vertical: Optional[str] = None
     created_at: Optional[datetime] = None
 
 class VendorWatch(BaseModel):
@@ -150,3 +152,55 @@ class SignalResponse(BaseModel):
     score: float
     last_crawled: Optional[datetime] = None
     citations: List[str] = []
+
+class EventType(str, Enum):
+    PRODUCT = "product"
+    FUNDING = "funding"
+    PRESS = "press"
+    SECURITY = "security"
+
+class ProcessedEvent(BaseModel):
+    id: Optional[str] = None
+    company_id: int
+    event_type: EventType
+    title: str
+    url: str
+    source_domain: str
+    timestamp: datetime
+    content_hash: str
+    raw_score: float
+    impact_score: float
+    confidence: float
+    created_at: Optional[datetime] = None
+
+class ScoringConfiguration(BaseModel):
+    id: Optional[int] = None
+    source_credibility_weights: Dict[str, float] = {
+        "company_blog": 0.9,
+        "tier1_tech_media": 1.0,
+        "low_tier_aggregator": 0.5
+    }
+    event_type_weights: Dict[str, float] = {
+        "product": 1.0,
+        "funding": 0.9,
+        "press": 0.6,
+        "security": 0.8
+    }
+    recency_half_life_days: int = 60
+    lookback_window_days: int = 180
+    quadrant_cutoff_percentile: int = 60
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+class CompanyScoreResult(BaseModel):
+    company_id: int
+    company_name: str
+    activity_score: float
+    activity_percentile: float
+    activity_z_score: float
+    impact_score: float
+    momentum: float
+    confidence: float
+    quadrant: str
+    explanations: List[str]
+    sample_links: List[str]

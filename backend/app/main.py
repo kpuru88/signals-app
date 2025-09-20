@@ -933,121 +933,203 @@ async def save_settings_configuration(config: SettingsConfiguration):
 
 @app.get("/companies/activity")
 async def get_company_activity():
-    """Get detailed activity scores for all companies using Exa API data"""
+    """Get sophisticated competitive intelligence scores using 12-step methodology"""
     from datetime import datetime, timedelta
     import asyncio
+    from .scoring_engine import AdvancedScoringEngine
+    from .models import ScoringConfiguration, EventType, ProcessedEvent, CompanyScoreResult
     
     companies = db.list_companies()
     if not companies:
         return []
     
-    seven_days_ago = datetime.utcnow() - timedelta(days=7)
+    config = ScoringConfiguration()
+    scoring_engine = AdvancedScoringEngine(config)
+    
+    lookback_date = datetime.utcnow() - timedelta(days=config.lookback_window_days)
+    now = datetime.utcnow()
     
     try:
         exa = get_exa_client()
     except Exception as e:
         print(f"Warning: Could not initialize Exa client: {e}")
-        activity_data = []
-        for company in companies:
-            recent_signals = [s for s in db.list_signals(company.id) 
-                            if s.created_at and s.created_at > seven_days_ago]
-            
-            recent_tearsheets = [t for t in db.get_tearsheets_by_company(company.id)
-                               if t.created_at and t.created_at > seven_days_ago]
-            
-            activity_data.append({
-                "company_id": company.id,
-                "company_name": company.name,
-                "product_updates": len([s for s in recent_signals if s.type == "product_update"]),
-                "pricing_changes": len([s for s in recent_signals if s.type == "pricing_change"]),
-                "news_articles": len(recent_signals),
-                "funding_news": len([s for s in recent_signals if s.type == "funding"]),
-                "total_score": len(recent_signals) * 2 + len(recent_tearsheets),
-                "domains": company.domains
-            })
-        
-        activity_data.sort(key=lambda x: x["total_score"], reverse=True)
-        return activity_data
+        return await get_fallback_activity_scores(companies)
     
-    async def get_company_exa_data(company):
+    async def process_company_signals(company):
+        """Process all signals for a company using the 12-step methodology"""
         try:
-            # Search for recent company updates across different categories
-            domain = company.domains[0] if company.domains else company.name.lower().replace(" ", "")
+            all_events = []
             
             product_search = await exa.search(
                 query=f"{company.name} product updates new features releases",
-                include_domains=[domain] if domain else None,
-                start_published_date=seven_days_ago.isoformat(),
-                num_results=5
-            )
-            
-            pricing_search = await exa.search(
-                query=f"{company.name} pricing price changes cost",
-                include_domains=[domain] if domain else None,
-                start_published_date=seven_days_ago.isoformat(),
-                num_results=5
-            )
-            
-            news_search = await exa.search(
-                query=f"{company.name} news announcement",
-                start_published_date=seven_days_ago.isoformat(),
+                include_domains=company.domains if company.domains else None,
+                start_published_date=lookback_date.isoformat(),
                 num_results=10
             )
             
+            for result in product_search.get("results", []):
+                all_events.append({
+                    "title": result.get("title", ""),
+                    "url": result.get("url", ""),
+                    "publishedDate": result.get("publishedDate", now.isoformat()),
+                    "event_type": EventType.PRODUCT
+                })
+            
             funding_search = await exa.search(
                 query=f"{company.name} funding investment round raised",
-                start_published_date=seven_days_ago.isoformat(),
+                start_published_date=lookback_date.isoformat(),
+                num_results=10
+            )
+            
+            for result in funding_search.get("results", []):
+                all_events.append({
+                    "title": result.get("title", ""),
+                    "url": result.get("url", ""),
+                    "publishedDate": result.get("publishedDate", now.isoformat()),
+                    "event_type": EventType.FUNDING
+                })
+            
+            press_search = await exa.search(
+                query=f"{company.name} news announcement press",
+                start_published_date=lookback_date.isoformat(),
+                num_results=15
+            )
+            
+            for result in press_search.get("results", []):
+                all_events.append({
+                    "title": result.get("title", ""),
+                    "url": result.get("url", ""),
+                    "publishedDate": result.get("publishedDate", now.isoformat()),
+                    "event_type": EventType.PRESS
+                })
+            
+            security_search = await exa.search(
+                query=f"{company.name} security update vulnerability patch",
+                include_domains=company.domains if company.domains else None,
+                start_published_date=lookback_date.isoformat(),
                 num_results=5
             )
             
-            recent_signals = [s for s in db.list_signals(company.id) 
-                            if s.created_at and s.created_at > seven_days_ago]
+            for result in security_search.get("results", []):
+                all_events.append({
+                    "title": result.get("title", ""),
+                    "url": result.get("url", ""),
+                    "publishedDate": result.get("publishedDate", now.isoformat()),
+                    "event_type": EventType.SECURITY
+                })
             
-            recent_tearsheets = [t for t in db.get_tearsheets_by_company(company.id)
-                               if t.created_at and t.created_at > seven_days_ago]
+            deduplicated_events = scoring_engine.deduplicate_events(all_events)
             
-            product_score = min(5, len(product_search.get("results", [])) + 
-                              len([s for s in recent_signals if s.type == "product_update"]))
+            processed_events = []
+            for event in deduplicated_events:
+                event_score = scoring_engine.calculate_event_score(
+                    event, event["event_type"], now
+                )
+                
+                processed_event = ProcessedEvent(
+                    company_id=company.id,
+                    event_type=event["event_type"],
+                    title=event["title"],
+                    url=event["url"],
+                    source_domain=event["url"].split("/")[2] if "/" in event["url"] and len(event["url"].split("/")) > 2 else "",
+                    timestamp=datetime.fromisoformat(event["publishedDate"].replace('Z', '+00:00')) if isinstance(event["publishedDate"], str) else event["publishedDate"],
+                    content_hash=event["content_hash"],
+                    raw_score=event_score,
+                    impact_score=scoring_engine.calculate_event_impact(event, event["event_type"]),
+                    confidence=0.8,
+                    created_at=now
+                )
+                processed_events.append(processed_event)
             
-            pricing_score = min(5, len(pricing_search.get("results", [])) + 
-                              len([s for s in recent_signals if s.type == "pricing_change"]))
-            
-            news_score = min(5, len(news_search.get("results", [])))
-            
-            funding_score = min(5, len(funding_search.get("results", [])) + 
-                              len([s for s in recent_signals if s.type == "funding"]))
-            
-            total_score = product_score + pricing_score + news_score + funding_score
+            raw_activity = scoring_engine.calculate_company_raw_activity(processed_events)
+            stabilized_score = scoring_engine.apply_stabilizers(raw_activity, processed_events)
+            normalized_score = scoring_engine.normalize_by_company_size(
+                stabilized_score, company.employees
+            )
             
             return {
-                "company_id": company.id,
-                "company_name": company.name,
-                "product_updates": product_score,
-                "pricing_changes": pricing_score,
-                "news_articles": news_score,
-                "funding_news": funding_score,
-                "total_score": total_score,
-                "domains": company.domains
+                "company": company,
+                "normalized_score": normalized_score,
+                "processed_events": processed_events,
+                "raw_activity": raw_activity
             }
             
         except Exception as e:
-            print(f"Error fetching Exa data for {company.name}: {e}")
-            recent_signals = [s for s in db.list_signals(company.id) 
-                            if s.created_at and s.created_at > seven_days_ago]
-            
+            print(f"Error processing company {company.name}: {e}")
             return {
-                "company_id": company.id,
-                "company_name": company.name,
-                "product_updates": len([s for s in recent_signals if s.type == "product_update"]),
-                "pricing_changes": len([s for s in recent_signals if s.type == "pricing_change"]),
-                "news_articles": len(recent_signals),
-                "funding_news": len([s for s in recent_signals if s.type == "funding"]),
-                "total_score": len(recent_signals) * 2,
-                "domains": company.domains
+                "company": company,
+                "normalized_score": 0.0,
+                "processed_events": [],
+                "raw_activity": 0.0
             }
     
-    # Process all companies concurrently
-    activity_data = await asyncio.gather(*[get_company_exa_data(company) for company in companies])
+    company_results = await asyncio.gather(*[process_company_signals(company) for company in companies])
     
-    activity_data.sort(key=lambda x: x["total_score"], reverse=True)
-    return activity_data
+    normalized_scores = [result["normalized_score"] for result in company_results]
+    z_scores = scoring_engine.calculate_z_scores(normalized_scores)
+    percentiles = scoring_engine.calculate_percentiles(normalized_scores)
+    
+    final_results = []
+    for i, result in enumerate(company_results):
+        company = result["company"]
+        
+        impact_score = min(100, result["raw_activity"] * 10)
+        momentum = 1.0
+        confidence = min(1.0, len(result["processed_events"]) / 10)
+        quadrant = scoring_engine.assign_quadrant(percentiles[i], impact_score)
+        
+        explanations = []
+        events_by_type = {}
+        for event in result["processed_events"]:
+            events_by_type[event.event_type] = events_by_type.get(event.event_type, 0) + 1
+        
+        for event_type, count in events_by_type.items():
+            if count > 0:
+                explanations.append(f"{count} {event_type.value} events in last {config.lookback_window_days} days")
+        
+        sample_links = [event.url for event in result["processed_events"][:3]]
+        
+        company_score = CompanyScoreResult(
+            company_id=company.id,
+            company_name=company.name,
+            activity_score=result["normalized_score"],
+            activity_percentile=percentiles[i],
+            activity_z_score=z_scores[i],
+            impact_score=impact_score,
+            momentum=momentum,
+            confidence=confidence,
+            quadrant=quadrant,
+            explanations=explanations,
+            sample_links=sample_links
+        )
+        
+        final_results.append(company_score)
+    
+    final_results.sort(key=lambda x: x.activity_percentile, reverse=True)
+    
+    return [result.dict() for result in final_results]
+
+async def get_fallback_activity_scores(companies):
+    """Fallback scoring when Exa API is unavailable"""
+    seven_days_ago = datetime.utcnow() - timedelta(days=7)
+    fallback_results = []
+    
+    for company in companies:
+        recent_signals = [s for s in db.list_signals(company.id) 
+                        if s.created_at and s.created_at > seven_days_ago]
+        
+        fallback_results.append({
+            "company_id": company.id,
+            "company_name": company.name,
+            "activity_score": len(recent_signals) * 2,
+            "activity_percentile": 50.0,
+            "activity_z_score": 0.0,
+            "impact_score": len(recent_signals) * 10,
+            "momentum": 1.0,
+            "confidence": 0.5,
+            "quadrant": "Niche/Watch",
+            "explanations": [f"{len(recent_signals)} signals in last 7 days (fallback mode)"],
+            "sample_links": []
+        })
+    
+    return fallback_results
