@@ -24,7 +24,7 @@ const CompanyActivityHeatmap: React.FC<CompanyActivityHeatmapProps> = ({ onCompa
   const [scoreData, setScoreData] = useState<CompanyScoreResult[]>([])
   const [loading, setLoading] = useState(true)
 
-  const API_BASE = (import.meta as any).env.VITE_API_BASE || 'http://localhost:8000'
+  const API_BASE = (import.meta as { env: { VITE_API_BASE?: string } }).env.VITE_API_BASE || 'http://localhost:8000'
 
   useEffect(() => {
     fetchScoreData()
