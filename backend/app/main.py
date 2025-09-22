@@ -39,45 +39,122 @@ async def search_companies(request: CompanySearchRequest):
     try:
         exa = get_exa_client()
         
-        # Search for company information
-        search_result = await exa.search(
-            query=f"{request.query} company website pricing",
-            num_results=request.max_results,
-            type="auto"
-        )
+        if len(request.query.strip()) < 3:
+            return CompanySearchResponse(
+                results=[],
+                query=request.query,
+                total_results=0
+            )
         
-        results = []
-        if search_result and search_result.get("results"):
-            for result in search_result["results"]:
-                # Extract domain from URL
-                url = result.get("url", "")
-                if not url:
-                    continue
-                    
-                domain = url.replace("https://", "").replace("http://", "").split("/")[0]
+        # Search for company information with multiple query strategies
+        search_queries = [
+            f"{request.query} official website",
+            f"{request.query} company",
+            f"{request.query} homepage",
+            f"{request.query} site:*.com",
+            f"{request.query} site:*.ai",
+            f"{request.query} site:*.io",
+            f"{request.query}"
+        ]
+        
+        all_results = []
+        seen_domains = set()
+        
+        for query in search_queries:
+            try:
+                search_result = await exa.search(
+                    query=query,
+                    num_results=min(5, request.max_results),
+                    type="auto"
+                )
                 
-                # Extract company name from title or URL
-                title = result.get("title", "")
-                company_name = title.split(" - ")[0] if " - " in title else title.split(" | ")[0] if " | " in title else title
+                if search_result and search_result.get("results"):
+                    for result in search_result["results"]:
+                        # Extract domain from URL
+                        url = result.get("url", "")
+                        if not url:
+                            continue
+                            
+                        domain = url.replace("https://", "").replace("http://", "").split("/")[0]
+                        
+                        if domain in seen_domains or domain == "":
+                            continue
+                        seen_domains.add(domain)
+                        
+                        company_name = extract_company_name(request.query, domain, result.get("title", ""))
+                        
+                        if company_name and domain:
+                            search_result_item = CompanySearchResult(
+                                name=company_name.strip(),
+                                domains=[domain],
+                                description=result.get("snippet", "")[:200] if result.get("snippet") else f"Technology company at {domain}",
+                                suggested_paths=["/pricing", "/release-notes", "/security"],
+                                tags=["search-result"]
+                            )
+                            all_results.append(search_result_item)
+                            
+                            if len(all_results) >= request.max_results:
+                                break
+                                
+            except Exception as e:
+                print(f"Search query '{query}' failed: {e}")
+                continue
                 
-                if company_name and domain and domain != "":
-                    search_result_item = CompanySearchResult(
-                        name=company_name.strip(),
-                        domains=[domain],
-                        description=result.get("snippet", "")[:200] if result.get("snippet") else None,
-                        suggested_paths=["/pricing", "/release-notes", "/security"],
-                        tags=["search-result"]
-                    )
-                    results.append(search_result_item)
+            if len(all_results) >= request.max_results:
+                break
         
         return CompanySearchResponse(
-            results=results,
+            results=all_results[:request.max_results],
             query=request.query,
-            total_results=len(results)
+            total_results=len(all_results)
         )
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error searching companies: {str(e)}")
+
+def extract_company_name(query: str, domain: str, title: str) -> str:
+    """Extract the best company name from query, domain, and title"""
+    query_lower = query.lower().strip()
+    
+    # Priority 1: If query matches domain closely, use query as company name
+    domain_parts = domain.split(".")
+    if len(domain_parts) >= 2:
+        main_domain = domain_parts[-2].lower()
+        
+        if (query_lower == main_domain or 
+            query_lower in main_domain or 
+            main_domain in query_lower or
+            abs(len(query_lower) - len(main_domain)) <= 2):
+            return query.title()
+    
+    if title:
+        title_lower = title.lower()
+        
+        if not any(word in title_lower for word in [
+            "pricing", "api", "documentation", "docs", "blog", "about", 
+            "support", "help", "login", "sign up", "dashboard", "features",
+            "contact", "careers", "news", "press", "terms", "privacy",
+            "plans", "billing", "account", "settings", "download", "install"
+        ]):
+            # Clean up title - remove common suffixes and prefixes
+            clean_title = title.split(" - ")[0].split(" | ")[0].split(" · ")[0].split(" – ")[0].strip()
+            
+            if (len(clean_title) < 50 and 
+                not clean_title.lower().startswith(("http", "www")) and
+                not clean_title.lower().endswith(("inc", "llc", "ltd", "corp"))):
+                
+                # If the clean title contains the query, it's likely the company name
+                if query_lower in clean_title.lower() or clean_title.lower() in query_lower:
+                    return clean_title
+                
+                if len(clean_title.split()) <= 3:
+                    return clean_title
+    
+    if len(domain_parts) >= 2:
+        main_domain = domain_parts[-2]
+        return main_domain.capitalize()
+    
+    return query.title()
 
 @app.post("/vendors/watch", response_model=Company)
 async def add_vendor(request: AddVendorRequest):
