@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -52,7 +52,12 @@ const WatchlistTab = () => {
   const CACHE_DURATION = 60 * 60 * 1000
   const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000'
 
-  const debounceSearch = useCallback(() => {
+  useEffect(() => {
+    loadCachedCompanyResults()
+    fetchVendors()
+  }, [])
+
+  useEffect(() => {
     if (searchQuery.trim() === "" || searchQuery.trim().length < 3) {
       setSearchResults([])
       setIsSearching(false)
@@ -60,53 +65,40 @@ const WatchlistTab = () => {
     }
 
     setIsSearching(true)
-    const timeoutId = setTimeout(() => {
-      const performSearch = async () => {
-        try {
-          const currentQuery = searchQuery.trim()
-          if (currentQuery.length < 3) {
-            setIsSearching(false)
-            return
-          }
-          
-          const response = await fetch(`${API_BASE}/companies/search`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-              query: currentQuery,
-              max_results: 10
-            })
-          })
-          
-          if (response.ok) {
-            const data = await response.json()
-            if (currentQuery === searchQuery.trim()) {
-              setSearchResults(data.results || [])
-            }
-          }
-        } catch (error) {
-          console.error('Search failed:', error)
-        } finally {
+    const timeoutId = setTimeout(async () => {
+      try {
+        const currentQuery = searchQuery.trim()
+        if (currentQuery.length < 3) {
           setIsSearching(false)
+          return
         }
+        
+        const response = await fetch(`${API_BASE}/companies/search`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            query: currentQuery,
+            max_results: 10
+          })
+        })
+        
+        if (response.ok) {
+          const data = await response.json()
+          if (currentQuery === searchQuery.trim()) {
+            setSearchResults(data.results || [])
+          }
+        }
+      } catch (error) {
+        console.error('Search failed:', error)
+      } finally {
+        setIsSearching(false)
       }
-      
-      performSearch()
     }, 2500)
 
     return () => clearTimeout(timeoutId)
   }, [searchQuery, API_BASE])
-  
-  useEffect(() => {
-    loadCachedCompanyResults()
-    fetchVendors()
-  }, [])
-
-  useEffect(() => {
-    debounceSearch()
-  }, [debounceSearch])
 
   const loadCachedCompanyResults = () => {
     try {
