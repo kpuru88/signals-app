@@ -218,3 +218,20 @@ class CompetitivePositioningRequest(BaseModel):
     company_ids: Optional[List[int]] = None  # If None, get for all companies
     force_refresh: bool = False  # Force refresh even if cache is valid
     cache_duration_hours: int = 24  # How long to cache the data
+
+class CompanySearchRequest(BaseModel):
+    query: str
+    max_results: int = 10
+
+class CompanySearchResult(BaseModel):
+    name: str
+    domains: List[str]
+    description: Optional[str] = None
+    suggested_paths: List[str] = ["/pricing", "/release-notes", "/security"]
+    linkedin_url: Optional[str] = None
+    tags: List[str] = []
+
+class CompanySearchResponse(BaseModel):
+    results: List[CompanySearchResult]
+    query: str
+    total_results: int

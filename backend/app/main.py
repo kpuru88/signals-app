@@ -10,7 +10,8 @@ import json
 from .models import (
     Company, VendorWatch, Signal, Report, TearSheet, SourcesConfiguration, SettingsConfiguration,
     AddVendorRequest, RunWatchlistRequest, TearSheetResponse, WeeklyReportRequest,
-    SignalType, SignalSeverity, SignalResponse, SignalDetectionRequest
+    SignalType, SignalSeverity, SignalResponse, SignalDetectionRequest,
+    CompanySearchRequest, CompanySearchResult, CompanySearchResponse
 )
 from .database import db
 from .exa_client import get_exa_client
@@ -31,6 +32,111 @@ app.add_middleware(
 @app.get("/healthz")
 async def healthz():
     return {"status": "ok"}
+
+@app.post("/companies/search", response_model=CompanySearchResponse)
+async def search_companies(request: CompanySearchRequest):
+    """Search for companies using EXA API"""
+    try:
+        exa = get_exa_client()
+        
+        query_clean = request.query.strip()
+        if len(query_clean) < 3:
+            return CompanySearchResponse(
+                results=[],
+                query=request.query,
+                total_results=0
+            )
+        
+        search_queries = [
+            f"{request.query} company",
+            f"{request.query} site:*.com",
+            f"{request.query}"
+        ]
+        
+        all_results = []
+        seen_domains = set()
+        
+        for query in search_queries:
+            try:
+                search_result = await exa.search(
+                    query=query,
+                    num_results=min(5, request.max_results),
+                    type="auto"
+                )
+                
+                if search_result and search_result.get("results"):
+                    for result in search_result["results"]:
+                        # Extract domain from URL
+                        url = result.get("url", "")
+                        if not url:
+                            continue
+                            
+                        domain = url.replace("https://", "").replace("http://", "").split("/")[0]
+                        
+                        if domain in seen_domains or domain == "":
+                            continue
+                        seen_domains.add(domain)
+                        
+                        company_name = extract_company_name(request.query, domain, result.get("title", ""))
+                        
+                        if company_name and domain:
+                            search_result_item = CompanySearchResult(
+                                name=company_name.strip(),
+                                domains=[domain],
+                                description=result.get("snippet", "")[:200] if result.get("snippet") else f"Technology company at {domain}",
+                                suggested_paths=["/pricing", "/release-notes", "/security"],
+                                tags=["search-result"]
+                            )
+                            all_results.append(search_result_item)
+                            
+                            if len(all_results) >= request.max_results:
+                                break
+                                
+            except Exception as e:
+                print(f"Search query '{query}' failed: {e}")
+                continue
+                
+            if len(all_results) >= request.max_results:
+                break
+        
+        return CompanySearchResponse(
+            results=all_results[:request.max_results],
+            query=request.query,
+            total_results=len(all_results)
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error searching companies: {str(e)}")
+
+def extract_company_name(query: str, domain: str, title: str) -> str:
+    """Extract the best company name from query, domain, and title"""
+    query_clean = query.strip()
+    
+    # Clean up common search modifiers from query
+    if query_clean.endswith(' company'):
+        query_clean = query_clean[:-8].strip()
+    elif query_clean.endswith(' official website'):
+        query_clean = query_clean[:-17].strip()
+    elif query_clean.endswith(' homepage'):
+        query_clean = query_clean[:-9].strip()
+    elif query_clean.startswith('site:'):
+        return domain.split('.')[0].capitalize() if '.' in domain else query_clean.title()
+    
+    if (len(query_clean) >= 3 and 
+        len(query_clean) <= 50 and 
+        not any(char in query_clean.lower() for char in ['/', '\\', '?', '&', '=', '#']) and
+        not query_clean.lower().startswith(('http', 'www')) and
+        not query_clean.lower() in ['search', 'find', 'company', 'website', 'site']):
+        
+        return query_clean.title()
+    
+    domain_parts = domain.split(".")
+    if len(domain_parts) >= 2:
+        main_domain = domain_parts[-2]
+        return main_domain.capitalize()
+    
+    # Final fallback
+    return query_clean.title()
 
 @app.post("/vendors/watch", response_model=Company)
 async def add_vendor(request: AddVendorRequest):
