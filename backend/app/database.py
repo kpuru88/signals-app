@@ -2,7 +2,7 @@ from typing import Dict, List, Optional
 from datetime import datetime
 import hashlib
 import json
-from .models import Company, VendorWatch, PageSnapshot, Diff, Signal, Report, TearSheet, SourcesConfiguration, SettingsConfiguration
+from .models import Company, VendorWatch, PageSnapshot, Diff, Signal, Report, TearSheet, SourcesConfiguration, SettingsConfiguration, CompetitivePositioningCache
 
 class InMemoryDatabase:
     def __init__(self):
@@ -15,6 +15,7 @@ class InMemoryDatabase:
         self.tearsheets: Dict[int, TearSheet] = {}
         self.sources_configurations: Dict[int, SourcesConfiguration] = {}
         self.settings_configurations: Dict[int, SettingsConfiguration] = {}
+        self.competitive_positioning_cache: Dict[int, CompetitivePositioningCache] = {}
         
         self._company_counter = 1
         self._vendor_watch_counter = 1
@@ -25,6 +26,7 @@ class InMemoryDatabase:
         self._tearsheet_counter = 1
         self._sources_config_counter = 1
         self._settings_config_counter = 1
+        self._competitive_positioning_cache_counter = 1
 
     def create_company(self, company: Company) -> Company:
         company.id = self._company_counter
@@ -155,5 +157,54 @@ class InMemoryDatabase:
         if not self.settings_configurations:
             return None
         return max(self.settings_configurations.values(), key=lambda x: x.created_at or datetime.min)
+
+    # Competitive Positioning Cache methods
+    def create_competitive_positioning_cache(self, cache: CompetitivePositioningCache) -> CompetitivePositioningCache:
+        cache.id = self._competitive_positioning_cache_counter
+        cache.created_at = datetime.utcnow()
+        cache.updated_at = datetime.utcnow()
+        self.competitive_positioning_cache[self._competitive_positioning_cache_counter] = cache
+        self._competitive_positioning_cache_counter += 1
+        return cache
+
+    def get_competitive_positioning_cache(self, company_id: int, cache_key: str) -> Optional[CompetitivePositioningCache]:
+        """Get cached data for a company with a specific cache key"""
+        for cache in self.competitive_positioning_cache.values():
+            if cache.company_id == company_id and cache.cache_key == cache_key and cache.expires_at > datetime.utcnow():
+                return cache
+        return None
+
+    def get_valid_competitive_positioning_cache(self, company_id: int) -> Optional[CompetitivePositioningCache]:
+        """Get any valid cached data for a company (regardless of cache key)"""
+        for cache in self.competitive_positioning_cache.values():
+            if cache.company_id == company_id and cache.expires_at > datetime.utcnow():
+                return cache
+        return None
+
+    def update_competitive_positioning_cache(self, cache: CompetitivePositioningCache) -> CompetitivePositioningCache:
+        """Update existing cache entry"""
+        if cache.id and cache.id in self.competitive_positioning_cache:
+            cache.updated_at = datetime.utcnow()
+            self.competitive_positioning_cache[cache.id] = cache
+            return cache
+        else:
+            raise ValueError(f"Cache with id {cache.id} not found")
+
+    def delete_expired_competitive_positioning_cache(self) -> int:
+        """Delete expired cache entries and return count of deleted entries"""
+        now = datetime.utcnow()
+        expired_ids = [
+            cache_id for cache_id, cache in self.competitive_positioning_cache.items()
+            if cache.expires_at <= now
+        ]
+        for cache_id in expired_ids:
+            del self.competitive_positioning_cache[cache_id]
+        return len(expired_ids)
+
+    def list_competitive_positioning_cache(self, company_id: Optional[int] = None) -> List[CompetitivePositioningCache]:
+        """List all cache entries, optionally filtered by company_id"""
+        if company_id is None:
+            return list(self.competitive_positioning_cache.values())
+        return [cache for cache in self.competitive_positioning_cache.values() if cache.company_id == company_id]
 
 db = InMemoryDatabase()

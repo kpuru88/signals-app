@@ -122,7 +122,7 @@ async def run_watchlist(request: RunWatchlistRequest = None):
                 search_queries = [
                     f"{company.name} new features product updates announcements",
                     f"{company.name} pricing changes updates plans",
-                    f"{company.name} funding rounds partnerships",
+                    f"{company.name} executive leadership team appointments",
                     f"{company.name} technology updates platform improvements",
                     f"{company.name} blogs articles news"
                 ]
@@ -158,7 +158,7 @@ async def run_watchlist(request: RunWatchlistRequest = None):
                         Analyze the following {company.name} content and extract recent updates and developments:
                         1. New product features, launches, or announcements
                         2. Pricing changes, updates, or new plans
-                        3. Funding rounds, partnerships, or business developments
+                        3. Executive appointments, leadership changes, or business developments
                         4. Technology updates or platform improvements
                         
                         For each finding, provide:
@@ -310,7 +310,7 @@ async def get_tearsheet(company_id: int):
             return TearSheetResponse(
                 company=company,
                 overview=latest_tearsheet.overview,
-                funding=latest_tearsheet.funding,
+                executives=latest_tearsheet.executives,
                 hiring_signals=latest_tearsheet.hiring_signals,
                 citations=latest_tearsheet.citations
             )
@@ -519,27 +519,65 @@ async def get_tearsheet(company_id: int):
         
         if not urls:
             print("DEBUG: No URLs found, returning basic response")
+            # Get executives data even if no URLs found
+            try:
+                exec_response = await get_company_executives(company_id)
+                executives_data = {
+                    "executives": exec_response.get("executives", []),
+                    "recent_hires": exec_response.get("recent_hires", []),
+                    "total_executives": exec_response.get("total_executives", 0),
+                    "total_recent_hires": exec_response.get("total_recent_hires", 0)
+                }
+            except Exception as e:
+                print(f"DEBUG: Error getting executives data: {e}")
+                executives_data = {
+                    "executives": [],
+                    "recent_hires": [],
+                    "total_executives": 0,
+                    "total_recent_hires": 0,
+                    "error": str(e)
+                }
+            
             return TearSheetResponse(
                 company=company,
                 overview="No information available - no search results found",
-                funding={"status": "Information not available"},
+                executives=executives_data,
                 hiring_signals=hiring_data,
                 citations=[]
             )
         
         answer_result = await exa.answer(
-            query=f"Summarize what {company.name} does, their funding, recent releases, and notable customers. Include citations.",
+            query=f"Summarize what {company.name} does, their leadership team, recent releases, and notable customers. Include citations.",
             urls=urls,
             text=True
         )
         
         print(f"DEBUG: Answer result: {answer_result}")
         
+        # Get executives data
+        try:
+            exec_response = await get_company_executives(company_id)
+            executives_data = {
+                "executives": exec_response.get("executives", []),
+                "recent_hires": exec_response.get("recent_hires", []),
+                "total_executives": exec_response.get("total_executives", 0),
+                "total_recent_hires": exec_response.get("total_recent_hires", 0)
+            }
+        except Exception as e:
+            print(f"DEBUG: Error getting executives data: {e}")
+            executives_data = {
+                "executives": [],
+                "recent_hires": [],
+                "total_executives": 0,
+                "total_recent_hires": 0,
+                "error": str(e)
+            }
+        
         # Create tearsheet response
         tearsheet_response = TearSheetResponse(
             company=company,
             overview=answer_result.get("answer", "No overview available"),
-            funding={"status": "Information not available"},
+            executives=executives_data,
             hiring_signals=hiring_data,
             citations=urls
         )
@@ -548,7 +586,7 @@ async def get_tearsheet(company_id: int):
         tearsheet = TearSheet(
             company_id=company.id,
             overview=tearsheet_response.overview,
-            funding=tearsheet_response.funding,
+            executives=tearsheet_response.executives,
             hiring_signals=tearsheet_response.hiring_signals,
             citations=tearsheet_response.citations,
             generated_at=datetime.utcnow()
@@ -953,55 +991,59 @@ async def get_company_activity():
     async def get_company_radar_data(company):
         """Get radar chart data for a company"""
         try:
+            # Use 3 months for all calculations
+            three_months_ago = datetime.utcnow() - timedelta(days=90)
+            
             # Get existing signals for this company
             signals = db.list_signals(company.id)
-            recent_signals = [s for s in signals if s.created_at and s.created_at > seven_days_ago]
+            recent_signals = [s for s in signals if s.created_at and s.created_at > three_months_ago]
             
-            # Search for product updates
+            # Search for product updates (last 3 months)
             product_search = await exa.search(
                 query=f"{company.name} product updates new features releases innovation",
                 include_domains=company.domains if company.domains else None,
-                start_published_date=seven_days_ago.isoformat(),
+                start_published_date=three_months_ago.isoformat(),
                 num_results=10
             )
             
-            # Search for growth/market data
+            # Search for growth/market data (last 3 months)
             growth_search = await exa.search(
                 query=f"{company.name} growth revenue market expansion",
-                start_published_date=seven_days_ago.isoformat(),
+                start_published_date=three_months_ago.isoformat(),
                 num_results=8
             )
             
-            # Search for brand/press coverage
+            # Search for brand/press coverage (last 3 months)
             brand_search = await exa.search(
                 query=f"{company.name} brand recognition awards press coverage",
-                start_published_date=seven_days_ago.isoformat(),
+                start_published_date=three_months_ago.isoformat(),
                 num_results=8
             )
             
-            # Search for pricing strategy
+            # Search for pricing strategy (last 3 months)
             pricing_search = await exa.search(
                 query=f"{company.name} pricing strategy cost competitive pricing",
                 include_domains=company.domains if company.domains else None,
-                start_published_date=seven_days_ago.isoformat(),
+                start_published_date=three_months_ago.isoformat(),
                 num_results=6
             )
             
-            # Search for customer satisfaction
+            # Search for customer satisfaction (last 3 months)
             customer_search = await exa.search(
                 query=f"{company.name} customer satisfaction reviews testimonials",
-                start_published_date=seven_days_ago.isoformat(),
+                start_published_date=three_months_ago.isoformat(),
                 num_results=6
             )
             
-            # Search for market share
+            # Search for market share (last 3 months)
             market_search = await exa.search(
                 query=f"{company.name} market share competitive position industry",
-                start_published_date=seven_days_ago.isoformat(),
+                start_published_date=three_months_ago.isoformat(),
                 num_results=6
             )
             
             base_activity = len(recent_signals)
+            market_activity = len(recent_signals)  # Use same 3-month signals for all metrics
             
             product_innovation = min(100, (len(product_search.get("results", [])) * 8) + 
                                    (len([s for s in recent_signals if s.type == "product_update"]) * 10) + 
@@ -1021,7 +1063,17 @@ async def get_company_activity():
                                       (base_activity * 4) + random.randint(30, 50))
             
             market_share = min(100, (len(market_search.get("results", [])) * 12) + 
-                             (base_activity * 7) + random.randint(20, 40))
+                             (market_activity * 7) + random.randint(20, 40))
+            
+            # Debug logging for market share calculation
+            print(f"\n=== MARKET SHARE DEBUG for {company.name} ===")
+            print(f"Market search results: {len(market_search.get('results', []))}")
+            print(f"Market activity (3-month signals): {market_activity}")
+            print(f"Base activity: {base_activity}")
+            print(f"Recent signals count: {len(recent_signals)}")
+            print(f"Market share calculation: ({len(market_search.get('results', []))} * 12) + ({market_activity} * 7) + random(20-40)")
+            print(f"Final market share: {market_share}")
+            print("=" * 50)
             
             return {
                 "company_id": company.id,
@@ -1038,7 +1090,8 @@ async def get_company_activity():
         except Exception as e:
             print(f"Error processing company {company.name}: {e}")
             signals = db.list_signals(company.id)
-            recent_signals = [s for s in signals if s.created_at and s.created_at > seven_days_ago]
+            three_months_ago = datetime.utcnow() - timedelta(days=90)
+            recent_signals = [s for s in signals if s.created_at and s.created_at > three_months_ago]
             base_score = len(recent_signals) * 10
             
             return {
@@ -1059,6 +1112,109 @@ async def get_company_activity():
     results.sort(key=lambda x: x["product_innovation"], reverse=True)
     
     return results
+
+@app.get("/companies/{company_id}/executives")
+async def get_company_executives(company_id: int):
+    """Get key executives and recent hires for a company"""
+    from datetime import datetime, timedelta
+    
+    # Get company from database
+    company = db.get_company(company_id)
+    if not company:
+        raise HTTPException(status_code=404, detail="Company not found")
+    
+    try:
+        exa = get_exa_client()
+    except Exception as e:
+        print(f"Warning: Could not initialize Exa client: {e}")
+        return {
+            "company_id": company_id,
+            "company_name": company.name,
+            "executives": [],
+            "recent_hires": [],
+            "error": "Exa API unavailable"
+        }
+    
+    try:
+        # Search for key executives - more specific queries
+        exec_queries = [
+            f"{company.name} CEO founder leadership team executives",
+            f"{company.name} CFO chief financial officer",
+            f"{company.name} CTO chief technology officer",
+            f"{company.name} leadership team management executives"
+        ]
+        
+        executives = []
+        for query in exec_queries:
+            try:
+                exec_search = await exa.search(
+                    query=query,
+                    include_domains=company.domains if company.domains else None,
+                    num_results=5
+                )
+                if exec_search.get("results"):
+                    for result in exec_search["results"]:
+                        executives.append({
+                            "name": result.get("title", "Unknown"),
+                            "snippet": result.get("snippet", ""),
+                            "url": result.get("url", ""),
+                            "published_date": result.get("publishedDate", ""),
+                            "query_type": query.split()[-1]  # Last word indicates what we searched for
+                        })
+            except Exception as e:
+                print(f"Error in executive search for query '{query}': {e}")
+                continue
+        
+        # Search for recent executive hires
+        hires_queries = [
+            f"{company.name} new CEO hire appointment",
+            f"{company.name} new CFO hire appointment", 
+            f"{company.name} new CTO hire appointment",
+            f"{company.name} executive hire leadership appointment",
+            f"{company.name} new leadership team member"
+        ]
+        
+        recent_hires = []
+        for query in hires_queries:
+            try:
+                hires_search = await exa.search(
+                    query=query,
+                    include_domains=company.domains if company.domains else None,
+                    start_published_date=(datetime.utcnow() - timedelta(days=180)).isoformat(),
+                    num_results=3
+                )
+                if hires_search.get("results"):
+                    for result in hires_search["results"]:
+                        recent_hires.append({
+                            "name": result.get("title", "Unknown"),
+                            "snippet": result.get("snippet", ""),
+                            "url": result.get("url", ""),
+                            "published_date": result.get("publishedDate", ""),
+                            "query_type": query.split()[-1]
+                        })
+            except Exception as e:
+                print(f"Error in hires search for query '{query}': {e}")
+                continue
+        
+        
+        return {
+            "company_id": company_id,
+            "company_name": company.name,
+            "executives": executives,
+            "recent_hires": recent_hires,
+            "total_executives": len(executives),
+            "total_recent_hires": len(recent_hires)
+        }
+        
+    except Exception as e:
+        print(f"Error getting executives for {company.name}: {e}")
+        return {
+            "company_id": company_id,
+            "company_name": company.name,
+            "executives": [],
+            "recent_hires": [],
+            "error": str(e)
+        }
 
 async def get_fallback_activity_scores(companies):
     """Fallback scoring when Exa API is unavailable"""

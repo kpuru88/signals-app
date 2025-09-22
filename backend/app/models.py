@@ -86,7 +86,7 @@ class TearSheet(BaseModel):
     id: Optional[int] = None
     company_id: int
     overview: str
-    funding: Dict[str, Any]
+    executives: Dict[str, Any]
     hiring_signals: Dict[str, Any]
     citations: List[str]
     generated_at: datetime
@@ -111,7 +111,7 @@ class SettingsConfiguration(BaseModel):
 class TearSheetResponse(BaseModel):
     company: Company
     overview: str
-    funding: Dict[str, Any]
+    executives: Dict[str, Any]
     hiring_signals: Dict[str, Any]
     citations: List[str]
 
@@ -204,3 +204,17 @@ class CompanyScoreResult(BaseModel):
     quadrant: str
     explanations: List[str]
     sample_links: List[str]
+
+class CompetitivePositioningCache(BaseModel):
+    id: Optional[int] = None
+    company_id: int
+    data: Dict[str, Any]  # The competitive positioning data
+    cache_key: str  # Unique key for this data combination
+    expires_at: datetime
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+class CompetitivePositioningRequest(BaseModel):
+    company_ids: Optional[List[int]] = None  # If None, get for all companies
+    force_refresh: bool = False  # Force refresh even if cache is valid
+    cache_duration_hours: int = 24  # How long to cache the data
