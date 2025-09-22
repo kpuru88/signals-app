@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import { Building2, ExternalLink, Users, DollarSign, FileText, BarChart3 } from 'lucide-react'
+import { Building2, ExternalLink, Users, FileText, BarChart3 } from 'lucide-react'
 import HiringTrendsChart from './HiringTrendsChart'
 
 interface Company {
@@ -17,7 +17,7 @@ interface Company {
 interface TearSheet {
   company: Company
   overview: string
-  funding: any
+  executives: any
   hiring_signals: any
   citations: string[]
 }
@@ -190,12 +190,38 @@ const TearSheetsTab = () => {
 
                     <div>
                       <h3 className="font-semibold text-gray-900 mb-3 flex items-center gap-2">
-                        <DollarSign className="h-5 w-5" />
-                        Funding
+                        <Users className="h-5 w-5" />
+                        Key Executives
                       </h3>
-                      <p className="text-gray-600">
-                        {tearSheet.funding.status || 'Information not available'}
-                      </p>
+                      {tearSheet.executives && tearSheet.executives.executives && tearSheet.executives.executives.length > 0 ? (
+                        <div className="space-y-3">
+                          <div className="text-sm text-gray-600 mb-2">
+                            Found {tearSheet.executives.total_executives} executives and {tearSheet.executives.total_recent_hires} recent hires
+                          </div>
+                          <div className="space-y-2 max-h-48 overflow-y-auto">
+                            {tearSheet.executives.executives.slice(0, 5).map((exec: any, index: number) => (
+                              <div key={index} className="bg-gray-50 p-3 rounded-lg border">
+                                <div className="font-medium text-sm text-gray-900">{exec.name}</div>
+                                {exec.snippet && (
+                                  <div className="text-xs text-gray-600 mt-1">{exec.snippet}</div>
+                                )}
+                                {exec.url && (
+                                  <a 
+                                    href={exec.url} 
+                                    target="_blank" 
+                                    rel="noopener noreferrer"
+                                    className="text-blue-600 hover:text-blue-800 text-xs underline mt-1 inline-block"
+                                  >
+                                    View Source
+                                  </a>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="text-gray-600">No executive information available</p>
+                      )}
                     </div>
 
                     <div>

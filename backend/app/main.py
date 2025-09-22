@@ -365,6 +365,7 @@ async def run_watchlist(request: RunWatchlistRequest = None):
                             comprehensive_citations.append(citation_info)
                 
                 results.append({
+                    "company_id": company.id,
                     "company": company.name,
                     "paths_checked": watch.include_paths,
                     "urls_found": len(all_urls),

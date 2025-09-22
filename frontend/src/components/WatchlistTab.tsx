@@ -259,14 +259,23 @@ const WatchlistTab = () => {
         const result = await response.json()
         console.log('Company watchlist run result:', result)
         
-        const updatedResults = {
-          ...companyResults,
-          [companyId]: result
-        }
-        setCompanyResults(updatedResults)
-        saveCachedCompanyResults(updatedResults, companyId)
+        // Extract the actual results from the response
+        const watchlistResults = result.results || []
+        const companyResult = watchlistResults.find((r: any) => r.company_id === companyId)
         
-        setCompanyDialogs(prev => ({...prev, [companyId]: true}))
+        if (companyResult) {
+          const updatedResults = {
+            ...companyResults,
+            [companyId]: companyResult
+          }
+          setCompanyResults(updatedResults)
+          saveCachedCompanyResults(updatedResults, companyId)
+          
+          setCompanyDialogs(prev => ({...prev, [companyId]: true}))
+        } else {
+          console.warn(`No results found for company ID ${companyId}`)
+          alert('No results found for this company. Please try again.')
+        }
       } else {
         const errorData = await response.json().catch(() => ({ detail: 'Unknown error' }))
         alert(`Error running watchlist: ${errorData.detail || 'Unknown error'}`)
