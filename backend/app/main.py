@@ -10,7 +10,8 @@ import json
 from .models import (
     Company, VendorWatch, Signal, Report, TearSheet, SourcesConfiguration, SettingsConfiguration,
     AddVendorRequest, RunWatchlistRequest, TearSheetResponse, WeeklyReportRequest,
-    SignalType, SignalSeverity, SignalResponse, SignalDetectionRequest
+    SignalType, SignalSeverity, SignalResponse, SignalDetectionRequest,
+    CompanySearchRequest, CompanySearchResult, CompanySearchResponse
 )
 from .database import db
 from .exa_client import get_exa_client
@@ -31,6 +32,52 @@ app.add_middleware(
 @app.get("/healthz")
 async def healthz():
     return {"status": "ok"}
+
+@app.post("/companies/search", response_model=CompanySearchResponse)
+async def search_companies(request: CompanySearchRequest):
+    """Search for companies using EXA API"""
+    try:
+        exa = get_exa_client()
+        
+        # Search for company information
+        search_result = await exa.search(
+            query=f"{request.query} company website pricing",
+            num_results=request.max_results,
+            type="auto"
+        )
+        
+        results = []
+        if search_result and search_result.get("results"):
+            for result in search_result["results"]:
+                # Extract domain from URL
+                url = result.get("url", "")
+                if not url:
+                    continue
+                    
+                domain = url.replace("https://", "").replace("http://", "").split("/")[0]
+                
+                # Extract company name from title or URL
+                title = result.get("title", "")
+                company_name = title.split(" - ")[0] if " - " in title else title.split(" | ")[0] if " | " in title else title
+                
+                if company_name and domain and domain != "":
+                    search_result_item = CompanySearchResult(
+                        name=company_name.strip(),
+                        domains=[domain],
+                        description=result.get("snippet", "")[:200] if result.get("snippet") else None,
+                        suggested_paths=["/pricing", "/release-notes", "/security"],
+                        tags=["search-result"]
+                    )
+                    results.append(search_result_item)
+        
+        return CompanySearchResponse(
+            results=results,
+            query=request.query,
+            total_results=len(results)
+        )
+        
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error searching companies: {str(e)}")
 
 @app.post("/vendors/watch", response_model=Company)
 async def add_vendor(request: AddVendorRequest):

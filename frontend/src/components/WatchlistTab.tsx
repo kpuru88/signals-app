@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -16,7 +16,8 @@ import {
   Shield,
   Edit2,
   Check,
-  X
+  X,
+  Search
 } from 'lucide-react'
 
 interface Company {
@@ -177,6 +178,100 @@ const WatchlistTab = () => {
     github_org: '',
     tags: ''
   })
+
+  const [searchQuery, setSearchQuery] = useState('')
+  const [searchResults, setSearchResults] = useState([])
+  const [isSearching, setIsSearching] = useState(false)
+  const [showSearchResults, setShowSearchResults] = useState(false)
+
+  const debounceSearch = useCallback(
+    (() => {
+      let timeoutId: NodeJS.Timeout
+      return (query: string) => {
+        clearTimeout(timeoutId)
+        timeoutId = setTimeout(() => {
+          if (query.trim().length > 2) {
+            performSearch(query)
+          } else {
+            setSearchResults([])
+            setShowSearchResults(false)
+          }
+        }, 300)
+      }
+    })(),
+    []
+  )
+
+  const performSearch = async (query: string) => {
+    setIsSearching(true)
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/companies/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          query: query,
+          max_results: 10
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        setSearchResults(data.results || [])
+        setShowSearchResults(true)
+      } else {
+        console.error('Search failed:', response.statusText)
+        setSearchResults([])
+      }
+    } catch (error) {
+      console.error('Error searching companies:', error)
+      setSearchResults([])
+    } finally {
+      setIsSearching(false)
+    }
+  }
+
+  const handleSearchInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const query = e.target.value
+    setSearchQuery(query)
+    debounceSearch(query)
+  }
+
+  const selectCompanyFromSearch = async (company: any) => {
+    try {
+      const vendorData = {
+        name: company.name,
+        domains: company.domains,
+        include_paths: company.suggested_paths || ['/pricing', '/release-notes', '/security'],
+        linkedin_url: company.linkedin_url || '',
+        github_org: '',
+        tags: company.tags || []
+      }
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/vendors/watch`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(vendorData),
+      })
+
+      if (response.ok) {
+        setSearchQuery('')
+        setSearchResults([])
+        setShowSearchResults(false)
+        await fetchVendors() // Refresh the vendor list
+        alert(`${company.name} added successfully!`)
+      } else {
+        const errorData = await response.json()
+        alert(`Failed to add company: ${errorData.detail || 'Unknown error'}`)
+      }
+    } catch (error) {
+      console.error('Error adding company:', error)
+      alert('Failed to add company. Please try again.')
+    }
+  }
 
   const API_BASE = (import.meta as any).env.VITE_API_BASE || 'http://localhost:8000'
 
@@ -377,7 +472,22 @@ const WatchlistTab = () => {
           <h2 className="text-3xl font-bold text-gray-900">Company Watchlist</h2>
           <p className="text-gray-600 mt-2">Monitor pricing, release notes, and security updates</p>
         </div>
-        <div className="flex gap-3">
+        <div className="flex items-center gap-4">
+          <div className="relative">
+            <Input
+              type="text"
+              placeholder="Search companies..."
+              value={searchQuery}
+              onChange={handleSearchInputChange}
+              className="w-64 pl-10"
+            />
+            <Search className="h-4 w-4 absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" />
+            {isSearching && (
+              <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                <div className="w-4 h-4 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            )}
+          </div>
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
               <Button>
@@ -476,18 +586,123 @@ const WatchlistTab = () => {
         </div>
       </div>
 
+      {/* Search Results for existing companies view */}
+      {showSearchResults && searchResults.length > 0 && companies.length > 0 && (
+        <div className="bg-white rounded-lg shadow-lg border mb-6">
+          <div className="p-4 border-b">
+            <h3 className="font-semibold text-gray-900">Search Results</h3>
+            <p className="text-sm text-gray-500">{searchResults.length} companies found</p>
+          </div>
+          <div className="max-h-64 overflow-y-auto">
+            {searchResults.map((company: any, index: number) => (
+              <div
+                key={index}
+                className="p-4 border-b last:border-b-0 hover:bg-gray-50 cursor-pointer transition-colors"
+                onClick={() => selectCompanyFromSearch(company)}
+              >
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h4 className="font-medium text-gray-900">{company.name}</h4>
+                    <p className="text-sm text-gray-600 mb-2">{company.domains.join(', ')}</p>
+                    {company.description && (
+                      <p className="text-sm text-gray-500 line-clamp-2">{company.description}</p>
+                    )}
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {company.suggested_paths?.map((path: string) => (
+                        <Badge key={path} variant="secondary" className="text-xs">
+                          {path}
+                        </Badge>
+                      ))}
+                    </div>
+                  </div>
+                  <Button size="sm" variant="outline">
+                    Add Company
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {companies.length === 0 ? (
-        <Card className="text-center py-12">
-          <CardContent>
-            <Building2 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <h3 className="text-lg font-medium text-gray-900 mb-2">No vendors yet</h3>
-            <p className="text-gray-600 mb-4">Add your first vendor to start tracking pricing and release notes.</p>
-            <Button onClick={() => setIsAddDialogOpen(true)}>
-              <Plus className="h-4 w-4 mr-2" />
-              Add Your First Vendor
-            </Button>
-          </CardContent>
-        </Card>
+        <div className="text-center py-12">
+          <div className="relative">
+            <div className="bg-gradient-to-br from-green-400 via-green-500 to-green-600 rounded-2xl p-12 mb-8 relative overflow-hidden">
+              <div className="absolute top-4 left-4 w-8 h-8 bg-white/20 rounded-full"></div>
+              <div className="absolute bottom-6 right-6 w-4 h-4 bg-white/30 rounded-full"></div>
+              
+              <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-6">
+                <Search className="h-8 w-8 text-green-600" />
+              </div>
+              
+              <div className="relative max-w-md mx-auto mb-4">
+                <Input
+                  type="text"
+                  placeholder="Search for anything amazing..."
+                  value={searchQuery}
+                  onChange={handleSearchInputChange}
+                  className="w-full px-6 py-4 text-lg bg-white border-0 rounded-full shadow-lg focus:ring-2 focus:ring-white/50 focus:outline-none"
+                />
+                {isSearching && (
+                  <div className="absolute right-4 top-1/2 transform -translate-y-1/2">
+                    <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
+              </div>
+              
+              <p className="text-white/90 text-lg font-medium">
+                Discover powerful search patterns and implementations
+              </p>
+            </div>
+
+            {showSearchResults && searchResults.length > 0 && (
+              <div className="bg-white rounded-lg shadow-lg border max-w-2xl mx-auto mb-6">
+                <div className="p-4 border-b">
+                  <h3 className="font-semibold text-gray-900">Search Results</h3>
+                  <p className="text-sm text-gray-500">{searchResults.length} companies found</p>
+                </div>
+                <div className="max-h-96 overflow-y-auto">
+                  {searchResults.map((company: any, index: number) => (
+                    <div
+                      key={index}
+                      className="p-4 border-b last:border-b-0 hover:bg-gray-50 cursor-pointer transition-colors"
+                      onClick={() => selectCompanyFromSearch(company)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-medium text-gray-900">{company.name}</h4>
+                          <p className="text-sm text-gray-600 mb-2">{company.domains.join(', ')}</p>
+                          {company.description && (
+                            <p className="text-sm text-gray-500 line-clamp-2">{company.description}</p>
+                          )}
+                          <div className="flex flex-wrap gap-1 mt-2">
+                            {company.suggested_paths?.map((path: string) => (
+                              <Badge key={path} variant="secondary" className="text-xs">
+                                {path}
+                              </Badge>
+                            ))}
+                          </div>
+                        </div>
+                        <Button size="sm" variant="default" className="bg-green-600 hover:bg-green-700">
+                          Add to Watchlist
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {showSearchResults && searchResults.length === 0 && searchQuery.trim().length > 2 && !isSearching && (
+              <div className="bg-white rounded-lg shadow-lg border max-w-2xl mx-auto mb-6 p-8 text-center">
+                <Building2 className="h-12 w-12 mx-auto text-gray-400 mb-4" />
+                <h3 className="font-medium text-gray-900 mb-2">No companies found</h3>
+                <p className="text-gray-500">Try searching with different keywords or company names</p>
+              </div>
+            )}
+          </div>
+        </div>
       ) : (
         <div className="grid gap-6">
           {companies.map((company) => (
