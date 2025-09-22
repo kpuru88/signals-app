@@ -63,20 +63,28 @@ const WatchlistTab = () => {
     const timeoutId = setTimeout(() => {
       const performSearch = async () => {
         try {
+          const currentQuery = searchQuery.trim()
+          if (currentQuery.length < 3) {
+            setIsSearching(false)
+            return
+          }
+          
           const response = await fetch(`${API_BASE}/companies/search`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-              query: searchQuery.trim(),
+              query: currentQuery,
               max_results: 10
             })
           })
           
           if (response.ok) {
             const data = await response.json()
-            setSearchResults(data.results || [])
+            if (currentQuery === searchQuery.trim()) {
+              setSearchResults(data.results || [])
+            }
           }
         } catch (error) {
           console.error('Search failed:', error)
@@ -86,7 +94,7 @@ const WatchlistTab = () => {
       }
       
       performSearch()
-    }, 800)
+    }, 2500)
 
     return () => clearTimeout(timeoutId)
   }, [searchQuery, API_BASE])

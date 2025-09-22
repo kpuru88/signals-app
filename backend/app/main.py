@@ -39,21 +39,17 @@ async def search_companies(request: CompanySearchRequest):
     try:
         exa = get_exa_client()
         
-        if len(request.query.strip()) < 3:
+        query_clean = request.query.strip()
+        if len(query_clean) < 3:
             return CompanySearchResponse(
                 results=[],
                 query=request.query,
                 total_results=0
             )
         
-        # Search for company information with multiple query strategies
         search_queries = [
-            f"{request.query} official website",
             f"{request.query} company",
-            f"{request.query} homepage",
             f"{request.query} site:*.com",
-            f"{request.query} site:*.ai",
-            f"{request.query} site:*.io",
             f"{request.query}"
         ]
         
@@ -114,47 +110,33 @@ async def search_companies(request: CompanySearchRequest):
 
 def extract_company_name(query: str, domain: str, title: str) -> str:
     """Extract the best company name from query, domain, and title"""
-    query_lower = query.lower().strip()
+    query_clean = query.strip()
     
-    # Priority 1: If query matches domain closely, use query as company name
+    # Clean up common search modifiers from query
+    if query_clean.endswith(' company'):
+        query_clean = query_clean[:-8].strip()
+    elif query_clean.endswith(' official website'):
+        query_clean = query_clean[:-17].strip()
+    elif query_clean.endswith(' homepage'):
+        query_clean = query_clean[:-9].strip()
+    elif query_clean.startswith('site:'):
+        return domain.split('.')[0].capitalize() if '.' in domain else query_clean.title()
+    
+    if (len(query_clean) >= 3 and 
+        len(query_clean) <= 50 and 
+        not any(char in query_clean.lower() for char in ['/', '\\', '?', '&', '=', '#']) and
+        not query_clean.lower().startswith(('http', 'www')) and
+        not query_clean.lower() in ['search', 'find', 'company', 'website', 'site']):
+        
+        return query_clean.title()
+    
     domain_parts = domain.split(".")
-    if len(domain_parts) >= 2:
-        main_domain = domain_parts[-2].lower()
-        
-        if (query_lower == main_domain or 
-            query_lower in main_domain or 
-            main_domain in query_lower or
-            abs(len(query_lower) - len(main_domain)) <= 2):
-            return query.title()
-    
-    if title:
-        title_lower = title.lower()
-        
-        if not any(word in title_lower for word in [
-            "pricing", "api", "documentation", "docs", "blog", "about", 
-            "support", "help", "login", "sign up", "dashboard", "features",
-            "contact", "careers", "news", "press", "terms", "privacy",
-            "plans", "billing", "account", "settings", "download", "install"
-        ]):
-            # Clean up title - remove common suffixes and prefixes
-            clean_title = title.split(" - ")[0].split(" | ")[0].split(" · ")[0].split(" – ")[0].strip()
-            
-            if (len(clean_title) < 50 and 
-                not clean_title.lower().startswith(("http", "www")) and
-                not clean_title.lower().endswith(("inc", "llc", "ltd", "corp"))):
-                
-                # If the clean title contains the query, it's likely the company name
-                if query_lower in clean_title.lower() or clean_title.lower() in query_lower:
-                    return clean_title
-                
-                if len(clean_title.split()) <= 3:
-                    return clean_title
-    
     if len(domain_parts) >= 2:
         main_domain = domain_parts[-2]
         return main_domain.capitalize()
     
-    return query.title()
+    # Final fallback
+    return query_clean.title()
 
 @app.post("/vendors/watch", response_model=Company)
 async def add_vendor(request: AddVendorRequest):
